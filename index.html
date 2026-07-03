@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Frever Fitness</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <h1>Frever Fitness</h1>
+      <p>Workouts, PBs, weight and measurements</p>
+    </div>
+    <div class="header-actions">
+      <span id="userEmail" class="pill">Not signed in</span>
+      <button id="logoutBtn" class="ghost small hidden">Log out</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="authPanel" class="auth-wrap">
+      <div class="card auth-card">
+        <h2>Login / Register</h2>
+        <p class="muted">Create an account or sign in. Your data is saved privately under your Firebase user account.</p>
+        <label>Email <input id="authEmail" type="email" autocomplete="email" /></label>
+        <label>Password <input id="authPassword" type="password" autocomplete="current-password" /></label>
+        <div class="row gap">
+          <button id="loginBtn" class="primary" type="button">Login</button>
+          <button id="registerBtn" class="secondary" type="button">Register</button>
+        </div>
+        <p id="authMessage" class="message"></p>
+      </div>
+    </section>
+
+    <section id="appPanel" class="hidden">
+      <nav class="tabs" aria-label="Main sections">
+        <button class="tab active" data-tab="workout">Workout</button>
+        <button class="tab" data-tab="pbs">PBs</button>
+        <button class="tab" data-tab="body">Body</button>
+        <button class="tab" data-tab="library">Exercises</button>
+        <button class="tab" data-tab="settings">Settings</button>
+      </nav>
+
+      <section id="workout" class="panel active">
+        <div class="card">
+          <h2>Log workout</h2>
+          <label>Date <input id="workoutDate" type="date" /></label>
+          <label>Exercise <select id="exerciseSelect"></select></label>
+          <div id="exerciseInfo" class="info-box"></div>
+          <div class="row gap">
+            <button id="demoBtn" class="secondary" type="button">Show demo</button>
+            <button id="quickAddExerciseBtn" class="ghost" type="button">Add new exercise</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="row between"><h3>Sets</h3><button id="addSetBtn" class="secondary small" type="button">+ Add set</button></div>
+          <div id="setRows"></div>
+          <button id="saveWorkoutBtn" class="primary" type="button">Save workout</button>
+        </div>
+
+        <div class="card"><h3>Recent workouts</h3><div id="recentWorkouts" class="stack"></div></div>
+      </section>
+
+      <section id="pbs" class="panel">
+        <div class="card"><h2>Personal bests</h2><p class="muted">PBs are calculated from saved sets. Left/right exercises are tracked separately.</p><div id="pbList" class="stack"></div></div>
+      </section>
+
+      <section id="body" class="panel">
+        <div class="card">
+          <h2>Body tracking</h2>
+          <label>Date <input id="bodyDate" type="date" /></label>
+          <label>Weight <input id="bodyWeight" inputmode="decimal" placeholder="e.g. 76.5" /></label>
+          <button id="saveWeightBtn" class="primary" type="button">Save weight</button>
+        </div>
+        <div class="card">
+          <h3>Measurements</h3>
+          <div class="grid two">
+            <label>Waist <input id="mWaist" inputmode="decimal" /></label>
+            <label>Hips <input id="mHips" inputmode="decimal" /></label>
+            <label>Chest <input id="mChest" inputmode="decimal" /></label>
+            <label>Left arm <input id="mLeftArm" inputmode="decimal" /></label>
+            <label>Right arm <input id="mRightArm" inputmode="decimal" /></label>
+            <label>Left leg <input id="mLeftLeg" inputmode="decimal" /></label>
+            <label>Right leg <input id="mRightLeg" inputmode="decimal" /></label>
+          </div>
+          <button id="saveMeasurementsBtn" class="primary" type="button">Save measurements</button>
+        </div>
+        <div class="card"><h3>Progress</h3><div id="bodySummary" class="summary-grid"></div><h4>Recent body entries</h4><div id="bodyEntries" class="stack"></div></div>
+      </section>
+
+      <section id="library" class="panel">
+        <div class="card">
+          <h2>Exercise library</h2>
+          <div class="grid two">
+            <label>Name <input id="exName" placeholder="e.g. Single-arm row" /></label>
+            <label>Category <select id="exCategory"><option>Push</option><option>Pull</option><option>Legs</option><option>Core</option><option>Cardio</option><option>Mobility</option></select></label>
+            <label>Tracking mode <select id="exMode"><option value="standard">Standard / both sides together</option><option value="leftRight">Left and right separately</option><option value="sideOptional">Single side optional</option></select></label>
+            <label>Equipment <input id="exEquipment" placeholder="Dumbbell, cable, machine..." /></label>
+          </div>
+          <label>Demo video/GIF URL <input id="exDemo" placeholder="https://..." /></label>
+          <label>Notes <textarea id="exNotes" rows="3" placeholder="Setup cues, seat height, form reminders..."></textarea></label>
+          <button id="saveExerciseBtn" class="primary" type="button">Save exercise</button>
+        </div>
+        <div class="card"><h3>Saved exercises</h3><div id="exerciseList" class="stack"></div></div>
+      </section>
+
+      <section id="settings" class="panel">
+        <div class="card">
+          <h2>Settings</h2>
+          <label>Default weight unit <select id="unitSetting"><option value="kg">kg</option><option value="lb">lb</option></select></label>
+          <label>Default weight label <select id="weightModeSetting"><option value="total">Total weight</option><option value="each">Each dumbbell / side</option><option value="bodyweight">Bodyweight</option></select></label>
+          <label>Measurement unit <select id="measureUnitSetting"><option value="cm">cm</option><option value="in">inches</option></select></label>
+          <button id="saveSettingsBtn" class="primary" type="button">Save settings</button>
+        </div>
+        <div class="card future"><h3>Food tracking — future</h3><p>Planned: upload a meal photo, get rough calories/macros, edit the estimate, then save it to a daily food log.</p><button disabled>Coming later</button></div>
+        <div class="card"><h3>Backup</h3><button id="exportBtn" class="secondary" type="button">Export JSON backup</button></div>
+      </section>
+    </section>
+  </main>
+
+  <dialog id="toastDialog"><p id="toastText"></p><button onclick="document.getElementById('toastDialog').close()">OK</button></dialog>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
