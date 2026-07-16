@@ -38,6 +38,7 @@
         <button class="tab active" data-tab="workout">Workout</button>
         <button class="tab" data-tab="pbs">PBs</button>
         <button class="tab" data-tab="body">Body</button>
+        <button class="tab" data-tab="timer">Timer</button>
         <button class="tab" data-tab="library">Exercises</button>
         <button class="tab" data-tab="settings">Settings</button>
       </nav>
@@ -88,6 +89,29 @@
           <button id="saveMeasurementsBtn" class="primary" type="button">Save measurements</button>
         </div>
         <div class="card"><h3>Progress</h3><div id="bodySummary" class="summary-grid"></div><h4>Recent body entries</h4><div id="bodyEntries" class="stack"></div></div>
+      </section>
+
+
+      <section id="timer" class="panel">
+        <div class="card">
+          <h2>Timer</h2>
+          <div class="mode-switch">
+            <button class="active" data-timer-mode="stopwatch" type="button">Stopwatch</button>
+            <button data-timer-mode="countdown" type="button">Rest timer</button>
+          </div>
+          <div id="timerDisplay" class="timer-display">00:00.0</div>
+          <p id="timerStatus" class="timer-status">Ready</p>
+          <div class="timer-controls">
+            <button id="timerStartBtn" class="primary" type="button">Start</button>
+            <button id="timerResetBtn" class="secondary" type="button">Reset</button>
+          </div>
+          <div id="timerPresetWrap" class="timer-presets hidden">
+            <button class="secondary" data-seconds="30" type="button">30 sec</button>
+            <button class="secondary" data-seconds="60" type="button">60 sec</button>
+            <button class="secondary" data-seconds="90" type="button">90 sec</button>
+            <button class="secondary" data-seconds="120" type="button">2 min</button>
+          </div>
+        </div>
       </section>
 
       <section id="library" class="panel">

@@ -1,29 +1,41 @@
-# Frever Fitness
+# Frever Fitness — Firebase + GitHub Pages
 
-Firebase version of the fitness tracker.
+This app uses:
 
-## What is included
+- GitHub Pages for hosting
+- Firebase Authentication for email/password accounts
+- Cloud Firestore for private user data
 
-- Firebase Auth login/register
-- Firestore saving per user
-- Exercise library
-- Standard, left/right and single-side exercise tracking
-- Workout logging
-- PB calculation
-- Body weight and measurements
-- Settings
-- JSON backup export
-- Food tracking placeholder for later
+## Upload to GitHub
 
-## Firebase setup needed
+1. Create a new public repository called `frever-fitness`.
+2. Extract this ZIP.
+3. Upload `index.html`, `styles.css`, `app.js`, and `README.md` to the repository root.
+4. Open the repository's **Settings → Pages**.
+5. Select **Deploy from a branch**.
+6. Choose `main` and `/ (root)`, then save.
 
-Authentication must have Email/Password enabled.
+## Important Firebase step: authorised domain
 
-Firestore rules should be:
+After GitHub Pages gives you the website address:
 
-```js
+1. Open Firebase Console.
+2. Open **Authentication**.
+3. Open **Settings**.
+4. Find **Authorised domains**.
+5. Add your GitHub Pages hostname, for example `libbyyakas.github.io`.
+6. Later, also add your custom hostname, for example `fitness.libbyyakas.com`.
+
+Do not include `https://` or a path when adding a domain.
+
+## Firestore rules
+
+The current database is locked. The app needs authenticated users to access only their own data.
+
+In the classic Firebase console, open **Firestore Database → Rules** and publish:
+
+```text
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
     match /users/{userId}/{document=**} {
@@ -34,4 +46,18 @@ service cloud.firestore {
 }
 ```
 
-The app is plain HTML/CSS/JS and can be hosted with GitHub Pages.
+If the new console does not provide an editable rules screen, switch to the classic Firebase console from the console menu/banner. The app will not be able to save anything while the existing rule remains `allow read, write: if false;`.
+
+## Included features
+
+- Register/login/logout
+- Exercise dropdown and custom exercises
+- Standard and left/right set tracking
+- Reps, sets and weight
+- Automatic PB list
+- Workout history
+- Body weight and measurements
+- Stopwatch and rest countdown presets
+- Sound/vibration at the end of a rest timer
+- Per-user settings
+- JSON backup export
