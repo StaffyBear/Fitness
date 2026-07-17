@@ -60,32 +60,15 @@
 
     <section id="workout" class="panel">
       <div id="routineSessionCard" class="card hidden"></div>
-      <div id="manualWorkoutCard" class="card compact-workout-card">
+      <div class="card compact-workout-card">
         <div class="title-date-row"><h2>Log workout</h2><input id="workoutDate" class="date-inline" type="date" aria-label="Workout date" /></div>
-      </div>
-
-      <div id="manualSetCard" class="card round-entry-card">
-        <div class="round-heading"><h3 id="roundHeading">Round 1</h3><span class="muted">Save both exercises together</span></div>
-        <div class="exercise-round-card" data-pair="1">
-          <label>Exercise 1<select id="exercise1Select"></select></label>
-          <div class="compact-control-grid">
-            <div class="mini-stepper"><span>REPS</span><div><button data-pair-adjust="1" data-kind="reps" data-delta="-1" type="button">▼</button><input id="reps1Value" inputmode="numeric" value="10"/><button data-pair-adjust="1" data-kind="reps" data-delta="1" type="button">▲</button></div></div>
-            <div id="weight1Wrap" class="mini-stepper"><span>WEIGHT (<b id="weight1Unit">kg</b>)</span><div><button data-pair-adjust="1" data-kind="weight" data-delta="-1" type="button">▼</button><input id="weight1Value" inputmode="decimal" value="0"/><button data-pair-adjust="1" data-kind="weight" data-delta="1" type="button">▲</button></div></div>
-          </div>
-        </div>
-        <div class="exercise-round-card" data-pair="2">
-          <div class="row between gap"><label class="grow">Exercise 2<select id="exercise2Select"></select></label><button id="removeExercise2Btn" class="ghost small" type="button">Remove</button></div>
-          <div id="exercise2Controls" class="compact-control-grid">
-            <div class="mini-stepper"><span>REPS</span><div><button data-pair-adjust="2" data-kind="reps" data-delta="-1" type="button">▼</button><input id="reps2Value" inputmode="numeric" value="10"/><button data-pair-adjust="2" data-kind="reps" data-delta="1" type="button">▲</button></div></div>
-            <div id="weight2Wrap" class="mini-stepper"><span>WEIGHT (<b id="weight2Unit">kg</b>)</span><div><button data-pair-adjust="2" data-kind="weight" data-delta="-1" type="button">▼</button><input id="weight2Value" inputmode="decimal" value="0"/><button data-pair-adjust="2" data-kind="weight" data-delta="1" type="button">▲</button></div></div>
-          </div>
-        </div>
-        <button id="addExercise2Btn" class="secondary wide hidden" type="button">+ Add second exercise</button>
-        <button id="saveRoundBtn" class="round-save-button" type="button">✓ Save round</button>
-        <button id="toggleRoundNotesBtn" class="text-button" type="button">+ Add notes</button>
-        <label id="roundNotesWrap" class="hidden">Notes<textarea id="roundNotes" rows="2" placeholder="Optional notes for this round"></textarea></label>
-        <div class="completed-wrap"><h4>Completed rounds</h4><div id="completedRounds" class="completed-list"></div></div>
-        <div class="row gap"><button id="finishPairWorkoutBtn" class="primary" type="button">Finish & save workout</button><button id="clearPairWorkoutBtn" class="ghost" type="button">Clear</button></div>
+        <div class="row between gap top-gap"><div><h3 id="roundHeading">Round 1</h3><p class="muted compact">Two exercises by default. Add more for a larger superset or circuit.</p></div><button id="addRoundExerciseBtn" class="secondary small" type="button">+ Exercise</button></div>
+        <div id="roundExerciseList" class="round-exercise-list"></div>
+        <div class="row gap wrap top-gap"><button id="savePassBtn" class="round-save-button grow" type="button">✓ Save pass</button><button id="addRoundBtn" class="secondary" type="button">+ Next round</button></div>
+        <button id="toggleRoundNotesBtn" class="text-button" type="button">+ Workout notes</button>
+        <label id="roundNotesWrap" class="hidden">Notes<textarea id="roundNotes" rows="2" placeholder="Optional notes for this workout"></textarea></label>
+        <div class="completed-wrap"><div class="row between"><h4>Completed sets</h4><span id="completedSetCount" class="pill">0</span></div><div id="completedRounds" class="completed-list"></div></div>
+        <div class="row gap wrap"><button id="finishPairWorkoutBtn" class="primary grow" type="button">Finish & save workout</button><button id="clearPairWorkoutBtn" class="ghost" type="button">Clear</button></div>
       </div>
       <select id="exerciseSelect" class="hidden"></select><div id="exerciseInfo" class="hidden"></div><button id="demoBtn" class="hidden" type="button"></button><button id="quickAddExerciseBtn" class="hidden" type="button"></button><div id="sideWrap" class="hidden"></div><input id="repsValue" class="hidden"/><input id="weightValue" class="hidden"/><span id="weightStepText" class="hidden"></span><span id="weightUnitText" class="hidden"></span><span id="weightUnitLabel" class="hidden"></span><span id="setHeading" class="hidden"></span><span id="pbHint" class="hidden"></span><textarea id="setNotes" class="hidden"></textarea><div id="completedSets" class="hidden"></div><button id="completeSetBtn" class="hidden"></button><button id="saveManualWorkoutBtn" class="hidden"></button><button id="clearManualWorkoutBtn" class="hidden"></button>
     </section>
@@ -103,7 +86,7 @@
       <div class="action-tiles"><button id="showWeightFormBtn" class="action-tile" type="button">+ Add weight</button><button id="showMeasureFormBtn" class="action-tile" type="button">+ Add measurements</button></div>
       <div id="weightFormCard" class="card hidden"><div class="row between"><h3>Add weight</h3><button class="ghost small" data-close-body-form type="button">Close</button></div><label>Date<input id="bodyDate" type="date" /></label><label>Weight<input id="bodyWeight" inputmode="decimal" placeholder="e.g. 76.5" /></label><button id="saveWeightBtn" class="primary" type="button">Save weight</button></div>
       <div id="measureFormCard" class="card hidden"><div class="row between"><h3>Add measurements</h3><button class="ghost small" data-close-body-form type="button">Close</button></div><label>Date<input id="measureDate" type="date" /></label><div class="grid two"><label>Waist<input id="mWaist" inputmode="decimal" /></label><label>Hips<input id="mHips" inputmode="decimal" /></label><label>Chest<input id="mChest" inputmode="decimal" /></label><label>Left arm<input id="mLeftArm" inputmode="decimal" /></label><label>Right arm<input id="mRightArm" inputmode="decimal" /></label><label>Left thigh<input id="mLeftLeg" inputmode="decimal" /></label><label>Right thigh<input id="mRightLeg" inputmode="decimal" /></label></div><button id="saveMeasurementsBtn" class="primary" type="button">Save measurements</button></div>
-      <div class="card"><div class="row between"><h3>Recent entries</h3></div><div id="bodyEntries" class="stack"></div></div>
+      <div class="card"><div class="row between gap"><h3>Progress</h3><button id="bodyHistoryBtn" class="secondary small" type="button">History</button></div><div class="chart-tabs"><button class="active" data-body-chart="weight" type="button">Weight</button><button data-body-chart="measurement" type="button">Measurements</button></div><label id="measurementChartChoice" class="hidden">Measurement<select id="measurementChartSelect"><option value="waist">Waist</option><option value="hips">Hips</option><option value="chest">Chest</option><option value="leftArm">Left arm</option><option value="rightArm">Right arm</option><option value="leftLeg">Left thigh</option><option value="rightLeg">Right thigh</option></select></label><canvas id="bodyChart" class="progress-chart" width="700" height="280"></canvas><div id="bodyChartEmpty" class="muted"></div></div><div id="bodyEntries" class="hidden"></div>
     </section>
 
     <section id="food" class="panel"><div class="card"><div class="row between gap"><div><h2>Meal planner</h2><p class="muted compact">Plan meals without needing to calorie-track them.</p></div><button id="saveMealWeekBtn" class="primary small" type="button">Save week</button></div><div class="week-switch"><button id="prevMealWeekBtn" type="button">‹</button><strong id="mealWeekLabel"></strong><button id="nextMealWeekBtn" type="button">›</button></div><div id="mealPlannerGrid" class="meal-grid"></div></div></section>
@@ -126,6 +109,9 @@
 </dialog>
 
 <dialog id="historyDialog" class="detail-dialog"><div class="row between"><h3 id="historyDialogTitle">Workout</h3><button id="historyDialogClose" class="ghost small" type="button">Close</button></div><div id="historyDialogBody"></div></dialog>
+<dialog id="workoutEditDialog" class="detail-dialog"><div class="row between"><h3>Edit workout</h3><button id="workoutEditClose" class="ghost small" type="button">Close</button></div><div id="workoutEditBody"></div><button id="saveWorkoutEditBtn" class="primary" type="button">Save changes</button></dialog>
+<dialog id="bodyHistoryDialog" class="detail-dialog"><div class="row between"><h3>Body history</h3><button id="bodyHistoryClose" class="ghost small" type="button">Close</button></div><div id="bodyHistoryList" class="stack"></div></dialog>
+<dialog id="pbChartDialog" class="detail-dialog"><div class="row between"><h3 id="pbChartTitle">Exercise progress</h3><button id="pbChartClose" class="ghost small" type="button">Close</button></div><canvas id="pbChart" class="progress-chart" width="700" height="300"></canvas><div id="pbChartList" class="stack top-gap"></div></dialog>
 
 <dialog id="toastDialog">
   <p id="toastText"></p>

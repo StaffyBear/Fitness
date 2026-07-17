@@ -50,8 +50,10 @@ let mealWeekStart = startOfWeek(new Date());
 let settings = { unit: "kg", weightMode: "total", measureUnit: "cm", defaultRest: 60, autoRest: false };
 let manualSets = [];
 let manualRounds = [];
-let secondExerciseEnabled = true;
-let manualSide = "both";
+let manualRoundNumber = 1;
+let manualGroupExercises = [];
+let editingWorkoutId = null;
+let bodyChartMode = "weight";
 let editingRoutineId = null;
 let routineDraftBlocks = [];
 let activeRoutineSession = null;
@@ -175,142 +177,216 @@ function renderEverything() {
   resetManualEntry(true);
 }
 
+function blankGroupExercise(exerciseId = null) {
+  const exercise = exerciseById(exerciseId) || exercises[0] || null;
+  return {
+    uid: crypto.randomUUID(),
+    exerciseId: exercise?.id || "",
+    reps: number(exercise?.defaultReps, 10),
+    weight: number(exercise?.defaultWeight, 0),
+    side: exercise?.mode === "standard" ? "both" : "both",
+    targetSets: 3,
+    completedSets: []
+  };
+}
+
 function renderExerciseSelects() {
   const optionHtml = exercises.map((exercise) => `<option value="${escapeHtml(exercise.id)}">${escapeHtml(exercise.name)}</option>`).join("");
-  ["exerciseSelect", "exercise1Select", "exercise2Select"].forEach((id) => {
-    const element = $(id);
-    if (!element) return;
+  document.querySelectorAll("select[data-exercise-select], #exerciseSelect").forEach((element) => {
     const current = element.value;
     element.innerHTML = optionHtml;
     if (exercises.some((exercise) => exercise.id === current)) element.value = current;
   });
-  if ($("exercise2Select") && exercises.length > 1 && $("exercise2Select").value === $("exercise1Select")?.value) $("exercise2Select").selectedIndex = 1;
-  syncPairDefaults(1);
-  syncPairDefaults(2);
-}
-
-function pairExercise(pair) {
-  return exercises.find((exercise) => exercise.id === $(`exercise${pair}Select`)?.value) || null;
-}
-
-function updateExerciseInfo() { syncPairDefaults(1); }
-
-function syncPairDefaults(pair, preserveValues = false) {
-  const exercise = pairExercise(pair);
-  if (!exercise) return;
-  if (!preserveValues) {
-    $(`reps${pair}Value`).value = exercise.defaultReps ?? 10;
-    $(`weight${pair}Value`).value = exercise.defaultWeight ?? 0;
+  if (!manualGroupExercises.length && exercises.length) {
+    manualGroupExercises = [blankGroupExercise(exercises[0]?.id), blankGroupExercise(exercises[1]?.id || exercises[0]?.id)];
   }
-  $(`weight${pair}Wrap`)?.classList.toggle("hidden", exerciseInputType(exercise) !== "repsWeight");
-  const repsLabel = $(`reps${pair}Value`)?.closest(".mini-stepper")?.querySelector("span");
-  if (repsLabel) repsLabel.textContent = exerciseInputType(exercise) === "time" ? "SECONDS" : "REPS";
-  if ($(`weight${pair}Unit`)) $(`weight${pair}Unit`).textContent = settings.unit;
+  renderManualRound();
 }
 
-function resetManualEntry(keepExercise = false) {
-  manualSets = [];
-  manualRounds = [];
-  secondExerciseEnabled = true;
-  $("roundNotes").value = "";
-  $("roundNotesWrap").classList.add("hidden");
-  $("exercise2Controls").closest(".exercise-round-card").classList.remove("hidden");
-  $("addExercise2Btn").classList.add("hidden");
-  renderCompletedRounds();
-  $("roundHeading").textContent = "Round 1";
-  if (!keepExercise && exercises[0]) $("exercise1Select").value = exercises[0].id;
-  syncPairDefaults(1);
-  syncPairDefaults(2);
+function selectedExercise() {
+  return exercises.find((exercise) => exercise.id === $("exerciseSelect")?.value) || exercises[0] || null;
 }
-
+function updateExerciseInfo() {}
 function renderSideButtons() {}
+function renderCompletedSets() { renderCompletedRounds(); }
+function completeManualSet() { saveCurrentPass(); }
+function savePairRound() { saveCurrentPass(); }
+function saveManualWorkout() { return savePairWorkout(); }
 
-function adjustPairValue(pair, kind, delta) {
-  const exercise = pairExercise(pair);
-  if (!exercise) return;
-  const input = kind === "reps" ? $(`reps${pair}Value`) : $(`weight${pair}Value`);
-  const step = kind === "reps" ? 1 : number(exercise.weightStep, 2.5);
-  const next = Math.max(0, number(input.value) + delta * step);
-  input.value = kind === "reps" ? Math.round(next) : Number(next.toFixed(2));
+function sideOptions(exercise, selected) {
+  if (!exercise || exercise.mode === "standard") return "";
+  return `<div class="segmented compact-side" role="group" aria-label="Side">
+    ${["both","left","right"].map(side => `<button class="${selected === side ? "active" : ""}" data-group-side="${side}" type="button">${side[0].toUpperCase()+side.slice(1)}</button>`).join("")}
+  </div>`;
 }
 
-function pairSet(pair) {
-  const exercise = pairExercise(pair);
+function groupExerciseCard(item, index) {
+  const exercise = exerciseById(item.exerciseId) || exercises[0];
+  if (!exercise) return "";
+  const inputType = exerciseInputType(exercise);
+  const completed = item.completedSets || [];
+  return `<article class="exercise-round-card flexible-exercise-card" data-group-uid="${item.uid}">
+    <div class="row between gap">
+      <label class="grow">Exercise ${index + 1}<select data-group-field="exerciseId">${exercises.map(ex => `<option value="${escapeHtml(ex.id)}" ${ex.id === item.exerciseId ? "selected" : ""}>${escapeHtml(ex.name)}</option>`).join("")}</select></label>
+      ${manualGroupExercises.length > 1 ? `<button class="ghost small" data-remove-group-exercise type="button">Remove</button>` : ""}
+    </div>
+    ${sideOptions(exercise, item.side)}
+    <div class="compact-control-grid">
+      <div class="mini-stepper"><span>${inputType === "time" ? "SECONDS" : "REPS"}</span><div><button data-group-adjust="reps" data-delta="-1" type="button">▼</button><input data-group-field="reps" inputmode="numeric" value="${number(item.reps,10)}"/><button data-group-adjust="reps" data-delta="1" type="button">▲</button></div></div>
+      <div class="mini-stepper ${inputType !== "repsWeight" ? "hidden" : ""}"><span>WEIGHT (${escapeHtml(settings.unit)})</span><div><button data-group-adjust="weight" data-delta="-1" type="button">▼</button><input data-group-field="weight" inputmode="decimal" value="${number(item.weight)}"/><button data-group-adjust="weight" data-delta="1" type="button">▲</button></div></div>
+    </div>
+    <div class="set-target-row"><span>${completed.length} of ${item.targetSets} sets saved</span><div class="row gap"><button class="secondary small" data-save-single-set type="button">✓ Save set</button><button class="ghost small" data-add-target-set type="button">+ Set</button></div></div>
+    <div class="inline-set-list">${completed.map((set, setIndex) => `<button class="saved-set-chip" data-edit-inline-set="${setIndex}" type="button">Set ${setIndex+1}: ${set.inputType === "time" ? `${set.reps}s` : set.inputType === "repsOnly" ? `${set.reps} reps` : `${set.reps} × ${set.weight}${settings.unit}`}${set.side !== "both" ? ` · ${set.side}` : ""} ✎</button>`).join("")}</div>
+  </article>`;
+}
+
+function renderManualRound() {
+  if (!$("roundExerciseList")) return;
+  $("roundHeading").textContent = `Round ${manualRoundNumber}`;
+  $("roundExerciseList").innerHTML = manualGroupExercises.map(groupExerciseCard).join("");
+  renderCompletedRounds();
+}
+
+function syncManualGroupFromDOM() {
+  document.querySelectorAll("[data-group-uid]").forEach(card => {
+    const item = manualGroupExercises.find(entry => entry.uid === card.dataset.groupUid);
+    if (!item) return;
+    card.querySelectorAll("[data-group-field]").forEach(input => {
+      const field = input.dataset.groupField;
+      item[field] = field === "exerciseId" ? input.value : number(input.value);
+    });
+  });
+}
+
+function currentSetFor(item) {
+  const exercise = exerciseById(item.exerciseId);
   if (!exercise) return null;
   return {
     exerciseId: exercise.id,
     exerciseName: exercise.name,
     inputType: exerciseInputType(exercise),
-    reps: number($(`reps${pair}Value`).value),
-    weight: exerciseInputType(exercise) === "repsWeight" ? number($(`weight${pair}Value`).value) : 0,
-    side: "both",
-    notes: $("roundNotes").value.trim(),
+    reps: number(item.reps),
+    weight: exerciseInputType(exercise) === "repsWeight" ? number(item.weight) : 0,
+    side: exercise.mode === "standard" ? "both" : (item.side || "both"),
+    notes: $("roundNotes")?.value.trim() || "",
     completedAt: new Date().toISOString()
   };
 }
 
 function calculatePBForSet(exerciseId, set) {
-  const previous = workouts.flatMap((workout) => workout.exercises || [])
-    .filter((entry) => entry.exerciseId === exerciseId)
-    .flatMap((entry) => entry.sets || []);
-  if (!previous.length) return true;
-  if (set.inputType === "time" || set.inputType === "repsOnly") return set.reps > Math.max(...previous.map((entry) => number(entry.reps)));
-  const bestWeight = Math.max(...previous.map((entry) => number(entry.weight)));
-  const bestRepsAtWeight = Math.max(0, ...previous.filter((entry) => number(entry.weight) === set.weight).map((entry) => number(entry.reps)));
+  const previous = workouts.flatMap(workout => workout.exercises || []).filter(entry => entry.exerciseId === exerciseId).flatMap(entry => entry.sets || []).filter(entry => (entry.side || "both") === (set.side || "both"));
+  const current = manualRounds.flatMap(round => round.entries || []).filter(entry => entry.exerciseId === exerciseId && (entry.side || "both") === (set.side || "both"));
+  const all = [...previous, ...current];
+  if (!all.length) return true;
+  if (set.inputType === "time" || set.inputType === "repsOnly") return set.reps > Math.max(...all.map(entry => number(entry.reps)));
+  const bestWeight = Math.max(...all.map(entry => number(entry.weight)));
+  const bestRepsAtWeight = Math.max(0, ...all.filter(entry => number(entry.weight) === set.weight).map(entry => number(entry.reps)));
   return set.weight > bestWeight || (set.weight === bestWeight && set.reps > bestRepsAtWeight);
 }
 
-function completeManualSet() { savePairRound(); }
-
-function savePairRound() {
-  const entries = [pairSet(1)];
-  if (secondExerciseEnabled) entries.push(pairSet(2));
-  if (entries.some((entry) => !entry || entry.reps <= 0)) return showToast("Enter at least one rep or second for each exercise.");
-  entries.forEach((entry) => { entry.isPB = calculatePBForSet(entry.exerciseId, entry); });
-  manualRounds.push({ roundNumber: manualRounds.length + 1, entries });
-  $("roundHeading").textContent = `Round ${manualRounds.length + 1}`;
-  $("roundNotes").value = "";
-  renderCompletedRounds();
-  if (settings.autoRest) {
-    const rest = Math.max(...entries.map((entry) => exerciseById(entry.exerciseId)?.restSeconds || settings.defaultRest));
-    startAutomaticRest(rest);
-  }
+function saveOneSet(uid) {
+  syncManualGroupFromDOM();
+  const item = manualGroupExercises.find(entry => entry.uid === uid);
+  if (!item) return;
+  const set = currentSetFor(item);
+  if (!set || set.reps <= 0) return showToast("Enter at least one rep or second.");
+  set.isPB = calculatePBForSet(set.exerciseId, set);
+  item.completedSets.push(set);
+  manualRounds.push({ roundNumber: manualRoundNumber, passNumber: item.completedSets.length, entries: [set] });
+  if (item.completedSets.length >= item.targetSets) item.targetSets = item.completedSets.length;
+  renderManualRound();
+  if (settings.autoRest) startAutomaticRest(exerciseById(item.exerciseId)?.restSeconds || settings.defaultRest);
 }
 
-function renderCompletedSets() { renderCompletedRounds(); }
+function saveCurrentPass() {
+  syncManualGroupFromDOM();
+  const entries = [];
+  manualGroupExercises.forEach(item => {
+    if (item.completedSets.length >= item.targetSets) return;
+    const set = currentSetFor(item);
+    if (!set || set.reps <= 0) return;
+    set.isPB = calculatePBForSet(set.exerciseId, set);
+    item.completedSets.push(set);
+    entries.push(set);
+  });
+  if (!entries.length) return showToast("All planned sets are already saved. Add another set or start the next round.");
+  manualRounds.push({ roundNumber: manualRoundNumber, passNumber: Math.max(...manualGroupExercises.map(item => item.completedSets.length)), entries });
+  renderManualRound();
+  if (settings.autoRest) startAutomaticRest(Math.max(...entries.map(entry => exerciseById(entry.exerciseId)?.restSeconds || settings.defaultRest)));
+}
+
+function addManualExercise() {
+  syncManualGroupFromDOM();
+  manualGroupExercises.push(blankGroupExercise(exercises.find(ex => !manualGroupExercises.some(item => item.exerciseId === ex.id))?.id || exercises[0]?.id));
+  renderManualRound();
+}
+
+function startNextRound() {
+  const unfinished = manualGroupExercises.some(item => item.completedSets.length < item.targetSets);
+  if (unfinished && !confirm("Some planned sets are not saved. Start the next round anyway?")) return;
+  manualRoundNumber += 1;
+  manualGroupExercises = [blankGroupExercise(manualGroupExercises[0]?.exerciseId), blankGroupExercise(manualGroupExercises[1]?.exerciseId || exercises[1]?.id || exercises[0]?.id)];
+  renderManualRound();
+}
+
+function resetManualEntry(keepExercise = false) {
+  const ids = keepExercise ? manualGroupExercises.slice(0,2).map(item => item.exerciseId) : [];
+  manualSets = [];
+  manualRounds = [];
+  manualRoundNumber = 1;
+  manualGroupExercises = [blankGroupExercise(ids[0] || exercises[0]?.id), blankGroupExercise(ids[1] || exercises[1]?.id || exercises[0]?.id)];
+  if ($("roundNotes")) $("roundNotes").value = "";
+  $("roundNotesWrap")?.classList.add("hidden");
+  renderManualRound();
+}
 
 function renderCompletedRounds() {
+  const count = manualRounds.reduce((total, round) => total + (round.entries?.length || 0), 0);
+  if ($("completedSetCount")) $("completedSetCount").textContent = String(count);
   if (!manualRounds.length) {
-    $("completedRounds").innerHTML = `<p class="muted">No rounds completed yet.</p>`;
+    $("completedRounds").innerHTML = `<p class="muted">No sets completed yet.</p>`;
     return;
   }
-  $("completedRounds").innerHTML = manualRounds.map((round, index) => `<div class="complete-round"><div class="round-label">Round ${index + 1}</div>${round.entries.map((entry) => {
+  const grouped = new Map();
+  manualRounds.forEach((round, sourceIndex) => {
+    const key = round.roundNumber || 1;
+    if (!grouped.has(key)) grouped.set(key, []);
+    (round.entries || []).forEach(entry => grouped.get(key).push({ ...entry, sourceIndex }));
+  });
+  $("completedRounds").innerHTML = [...grouped.entries()].map(([roundNo, entries]) => `<div class="complete-round"><div class="row between"><div class="round-label">Round ${roundNo}</div><button class="secondary small" data-edit-round="${roundNo}" type="button">Edit round</button></div>${entries.map((entry,index) => {
     const value = entry.inputType === "time" ? `${entry.reps} sec` : entry.inputType === "repsOnly" ? `${entry.reps} reps` : `${entry.reps} reps @ ${entry.weight} ${settings.unit}`;
-    return `<div class="complete-line"><span>${escapeHtml(entry.exerciseName)}</span><strong>${escapeHtml(value)}${entry.isPB ? " · PB" : ""}</strong></div>`;
-  }).join("")}<button class="danger small" data-remove-round="${index}" type="button">Remove</button></div>`).join("");
+    return `<div class="complete-line"><span>${escapeHtml(entry.exerciseName)}${entry.side !== "both" ? ` · ${escapeHtml(entry.side)}` : ""}</span><strong>${escapeHtml(value)}${entry.isPB ? " · PB" : ""}</strong></div>`;
+  }).join("")}</div>`).join("");
 }
 
-async function saveManualWorkout() { return savePairWorkout(); }
+function editCompletedRound(roundNo) {
+  const entries = manualRounds.filter(round => Number(round.roundNumber) === Number(roundNo)).flatMap(round => round.entries || []);
+  if (!entries.length) return;
+  manualGroupExercises = entries.reduce((list, entry) => {
+    let item = list.find(row => row.exerciseId === entry.exerciseId && row.side === entry.side);
+    if (!item) { item = blankGroupExercise(entry.exerciseId); item.side = entry.side || "both"; item.completedSets = []; item.targetSets = 0; list.push(item); }
+    item.completedSets.push({ ...entry }); item.targetSets += 1; item.reps = entry.reps; item.weight = entry.weight;
+    return list;
+  }, []);
+  manualRounds = manualRounds.filter(round => Number(round.roundNumber) !== Number(roundNo));
+  manualRoundNumber = Number(roundNo);
+  renderManualRound();
+  showToast(`Round ${roundNo} reopened for editing.`);
+}
 
 async function savePairWorkout() {
-  if (!manualRounds.length) return showToast("Save at least one round first.");
+  if (!manualRounds.length) return showToast("Save at least one set first.");
   const grouped = new Map();
-  manualRounds.forEach((round) => round.entries.forEach((entry) => {
-    if (!grouped.has(entry.exerciseId)) grouped.set(entry.exerciseId, { exerciseId: entry.exerciseId, exerciseName: entry.exerciseName, sets: [] });
-    grouped.get(entry.exerciseId).sets.push({
-      setNumber: grouped.get(entry.exerciseId).sets.length + 1,
-      reps: entry.reps, weight: entry.weight, inputType: entry.inputType, side: entry.side,
-      notes: entry.notes, completedAt: entry.completedAt, isPB: entry.isPB
-    });
+  manualRounds.forEach(round => (round.entries || []).forEach(entry => {
+    const key = `${entry.exerciseId}|${entry.side || "both"}`;
+    if (!grouped.has(key)) grouped.set(key, { exerciseId: entry.exerciseId, exerciseName: entry.exerciseName, sets: [] });
+    grouped.get(key).sets.push({ setNumber: grouped.get(key).sets.length + 1, reps: entry.reps, weight: entry.weight, inputType: entry.inputType, side: entry.side, notes: entry.notes, completedAt: entry.completedAt, isPB: entry.isPB, roundNumber: round.roundNumber });
   }));
-  const workout = {
-    date: $("workoutDate").value || today(), source: "manual", routineId: null, routineName: null,
-    exercises: [...grouped.values()], createdAt: serverTimestamp()
-  };
+  const workout = { date: $("workoutDate").value || today(), source: "manual", routineId: null, routineName: null, notes: $("roundNotes")?.value.trim() || "", exercises: [...grouped.values()], createdAt: serverTimestamp() };
   const ref = await addDoc(userCollection("workouts"), workout);
-  workouts.unshift({ id: ref.id, ...workout, createdAt: { seconds: Math.floor(Date.now() / 1000) } });
+  workouts.unshift({ id: ref.id, ...workout, createdAt: { seconds: Math.floor(Date.now()/1000) } });
   resetManualEntry(true);
-  renderPBs(); renderHistory(); renderExerciseLibrary();
+  renderPBs(); renderHistory(); renderExerciseLibrary(); renderBodyChart();
   showToast("Workout saved.");
 }
 
@@ -334,10 +410,7 @@ function allCompletedSets() {
 
 function renderPBs() {
   const sets = allCompletedSets();
-  if (!sets.length) {
-    $("pbList").innerHTML = `<p class="muted">Save a workout to calculate PBs.</p>`;
-    return;
-  }
+  if (!sets.length) { $("pbList").innerHTML = `<p class="muted">Save a workout to calculate PBs.</p>`; return; }
   const groups = new Map();
   for (const set of sets) {
     const key = `${set.exerciseId}|${set.side || "both"}`;
@@ -349,15 +422,44 @@ function renderPBs() {
     const [exerciseId, side] = key.split("|");
     const exercise = exerciseById(exerciseId);
     let best;
-    if (exercise?.inputType === "time" || exercise?.inputType === "repsOnly") {
-      best = entries.sort((a, b) => number(b.reps) - number(a.reps))[0];
-    } else {
-      best = entries.sort((a, b) => number(b.weight) - number(a.weight) || number(b.reps) - number(a.reps))[0];
-    }
-    const value = exercise?.inputType === "time" ? `${best.reps} sec` : exercise?.inputType === "repsOnly" ? `${best.reps} reps` : `${best.weight} ${settings.unit} × ${best.reps}`;
-    cards.push(`<div class="item"><div class="item-title">${escapeHtml(exercise?.name || best.exerciseName || "Exercise")}${side !== "both" ? ` — ${escapeHtml(side)}` : ""}</div><div class="item-meta"><span class="pb-badge">PB</span> ${escapeHtml(value)} · ${formatDate(best.date)}</div></div>`);
+    if (exerciseInputType(exercise) === "time" || exerciseInputType(exercise) === "repsOnly") best = [...entries].sort((a,b)=>number(b.reps)-number(a.reps))[0];
+    else best = [...entries].sort((a,b)=>number(b.weight)-number(a.weight)||number(b.reps)-number(a.reps))[0];
+    const value = exerciseInputType(exercise) === "time" ? `${best.reps} sec` : exerciseInputType(exercise) === "repsOnly" ? `${best.reps} reps` : `${best.weight} ${settings.unit} × ${best.reps}`;
+    cards.push(`<button class="item history-item" data-pb-exercise="${escapeHtml(exerciseId)}" data-pb-side="${escapeHtml(side)}" type="button"><div class="item-title">${escapeHtml(exercise?.name || best.exerciseName || "Exercise")}${side !== "both" ? ` — ${escapeHtml(side)}` : ""}</div><div class="item-meta"><span class="pb-badge">PB</span> ${escapeHtml(value)} · ${formatDate(best.date)}<br><span class="link-hint">Tap for progress graph</span></div></button>`);
   }
   $("pbList").innerHTML = cards.join("");
+}
+
+function drawLineChart(canvas, points, labelFormatter = value => String(value)) {
+  const ctx = canvas.getContext("2d");
+  const ratio = window.devicePixelRatio || 1;
+  const width = canvas.clientWidth || 700, height = 280;
+  canvas.width = width * ratio; canvas.height = height * ratio; ctx.scale(ratio, ratio);
+  ctx.clearRect(0,0,width,height);
+  if (!points.length) return false;
+  const pad = {l:48,r:18,t:22,b:42};
+  const values = points.map(p=>number(p.value));
+  let min = Math.min(...values), max = Math.max(...values); if (min===max){min-=1;max+=1;}
+  const x = i => pad.l + (points.length===1 ? (width-pad.l-pad.r)/2 : i*(width-pad.l-pad.r)/(points.length-1));
+  const y = v => pad.t + (max-v)*(height-pad.t-pad.b)/(max-min);
+  ctx.strokeStyle = "#d9d0df"; ctx.lineWidth=1;
+  for(let i=0;i<4;i++){const yy=pad.t+i*(height-pad.t-pad.b)/3;ctx.beginPath();ctx.moveTo(pad.l,yy);ctx.lineTo(width-pad.r,yy);ctx.stroke();}
+  ctx.fillStyle="#655d69"; ctx.font="12px system-ui"; ctx.textAlign="right";
+  ctx.fillText(labelFormatter(max),pad.l-8,pad.t+4); ctx.fillText(labelFormatter(min),pad.l-8,height-pad.b+4);
+  ctx.strokeStyle="#7b5a91"; ctx.lineWidth=3; ctx.beginPath(); points.forEach((p,i)=>{const xx=x(i),yy=y(p.value); i?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy)}); ctx.stroke();
+  ctx.fillStyle="#7b5a91"; points.forEach((p,i)=>{ctx.beginPath();ctx.arc(x(i),y(p.value),4,0,Math.PI*2);ctx.fill();});
+  ctx.fillStyle="#655d69";ctx.textAlign="center";const labels=points.length>5?[0,Math.floor((points.length-1)/2),points.length-1]:points.map((_,i)=>i);labels.forEach(i=>ctx.fillText(new Date(`${points[i].date}T12:00:00`).toLocaleDateString("en-GB",{day:"2-digit",month:"short"}),x(i),height-15));
+  return true;
+}
+
+function openPBChart(exerciseId, side="both") {
+  const exercise=exerciseById(exerciseId); const sets=allCompletedSets().filter(s=>s.exerciseId===exerciseId&&(s.side||"both")===side).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+  $("pbChartTitle").textContent=`${exercise?.name||"Exercise"}${side!=="both"?` — ${side}`:""}`;
+  const byDate=new Map(); sets.forEach(set=>{const val=exerciseInputType(exercise)==="repsWeight"?number(set.weight):number(set.reps);byDate.set(set.date,Math.max(val,byDate.get(set.date)??-Infinity));});
+  const points=[...byDate].map(([date,value])=>({date,value}));
+  drawLineChart($("pbChart"),points,v=>exerciseInputType(exercise)==="repsWeight"?`${v}${settings.unit}`:`${v}${exerciseInputType(exercise)==="time"?"s":""}`);
+  $("pbChartList").innerHTML=[...sets].reverse().slice(0,20).map(set=>`<div class="item"><div class="item-title">${formatDate(set.date)}</div><div class="item-meta">${set.inputType==="time"?`${set.reps} sec`:set.inputType==="repsOnly"?`${set.reps} reps`:`${set.weight} ${settings.unit} × ${set.reps}`}</div></div>`).join("");
+  $("pbChartDialog").showModal();
 }
 
 function renderExerciseLibrary() {
@@ -610,8 +712,8 @@ function startRoutine(id) {
     skipped: []
   };
   $("routineSessionCard").classList.remove("hidden");
-  $("manualWorkoutCard").classList.add("hidden");
-  $("manualSetCard").classList.add("hidden");
+  $("manualWorkoutCard")?.classList.add("hidden");
+  $("manualSetCard")?.classList.add("hidden");
   renderRoutineSession();
   switchTab("workout");
 }
@@ -726,8 +828,8 @@ function closeRoutineSession() {
   activeRoutineSession = null;
   $("routineSessionCard").classList.add("hidden");
   $("routineSessionCard").innerHTML = "";
-  $("manualWorkoutCard").classList.remove("hidden");
-  $("manualSetCard").classList.remove("hidden");
+  $("manualWorkoutCard")?.classList.remove("hidden");
+  $("manualSetCard")?.classList.remove("hidden");
 }
 
 function startAutomaticRest(seconds) {
@@ -765,22 +867,26 @@ async function saveBody(type) {
 }
 
 function renderBody() {
-  const weights = bodyEntries.filter((entry) => entry.type === "weight").sort((a, b) => String(b.date).localeCompare(String(a.date)));
-  const latestWeight = weights[0];
-  const previousWeight = weights[1];
-  const latestMeasurements = bodyEntries.filter((entry) => entry.type === "measurements").sort((a, b) => String(b.date).localeCompare(String(a.date)))[0];
-  $("bodySummary").innerHTML = `
-    <div class="summary">Current weight<strong>${latestWeight ? `${latestWeight.weight} ${latestWeight.unit || settings.unit}` : "—"}</strong></div>
-    <div class="summary">Last change<strong>${latestWeight && previousWeight ? `${(latestWeight.weight - previousWeight.weight).toFixed(1)} ${latestWeight.unit || settings.unit}` : "—"}</strong></div>
-    <div class="summary">Latest measurements<strong>${latestMeasurements ? formatDate(latestMeasurements.date) : "—"}</strong></div>`;
-  if (!bodyEntries.length) {
-    $("bodyEntries").innerHTML = `<p class="muted">No body entries yet.</p>`;
-    return;
+  const weights=bodyEntries.filter(e=>e.type==="weight").sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+  const latestWeight=weights[0], previousWeight=weights[1];
+  const latestMeasurements=bodyEntries.filter(e=>e.type==="measurements").sort((a,b)=>String(b.date).localeCompare(String(a.date)))[0];
+  $("bodySummary").innerHTML=`<div class="summary">Current weight<strong>${latestWeight?`${latestWeight.weight} ${latestWeight.unit||settings.unit}`:"—"}</strong></div><div class="summary">Last change<strong>${latestWeight&&previousWeight?`${(latestWeight.weight-previousWeight.weight).toFixed(1)} ${latestWeight.unit||settings.unit}`:"—"}</strong></div><div class="summary">Latest measurements<strong>${latestMeasurements?formatDate(latestMeasurements.date):"—"}</strong></div>`;
+  renderBodyChart(); renderBodyHistory();
+}
+function renderBodyChart(){
+  if(!$("bodyChart"))return;
+  let points=[]; let formatter=v=>String(v);
+  if(bodyChartMode==="weight"){
+    points=bodyEntries.filter(e=>e.type==="weight").sort((a,b)=>String(a.date).localeCompare(String(b.date))).map(e=>({date:e.date,value:e.weight})); formatter=v=>`${v}${settings.unit}`;
+  } else {
+    const key=$("measurementChartSelect")?.value||"waist"; points=bodyEntries.filter(e=>e.type==="measurements"&&number(e.measurements?.[key])>0).sort((a,b)=>String(a.date).localeCompare(String(b.date))).map(e=>({date:e.date,value:e.measurements[key]})); formatter=v=>`${v}${settings.measureUnit}`;
   }
-  $("bodyEntries").innerHTML = bodyEntries.slice(0, 12).map((entry) => {
-    const detail = entry.type === "weight" ? `${entry.weight} ${entry.unit || settings.unit}` : Object.entries(entry.measurements || {}).filter(([, value]) => value).map(([key, value]) => `${key}: ${value}`).join(" · ");
-    return `<div class="item"><div class="item-title">${entry.type === "weight" ? "Weight" : "Measurements"}</div><div class="item-meta">${formatDate(entry.date)} · ${escapeHtml(detail)}</div><div class="item-actions"><button class="danger small" data-delete-body="${escapeHtml(entry.id)}" type="button">Delete</button></div></div>`;
-  }).join("");
+  const ok=drawLineChart($("bodyChart"),points,formatter); $("bodyChartEmpty").textContent=ok?"":"Add at least one entry to see a graph.";
+}
+function measurementLabel(key){return ({waist:"Waist",hips:"Hips",chest:"Chest",leftArm:"Left arm",rightArm:"Right arm",leftLeg:"Left thigh",rightLeg:"Right thigh"})[key]||key;}
+function renderBodyHistory(){
+  if(!$("bodyHistoryList"))return;
+  $("bodyHistoryList").innerHTML=bodyEntries.length?bodyEntries.map(entry=>{const detail=entry.type==="weight"?`${entry.weight} ${entry.unit||settings.unit}`:Object.entries(entry.measurements||{}).filter(([,v])=>number(v)>0).map(([k,v])=>`${measurementLabel(k)}: ${v}${entry.unit||settings.measureUnit}`).join(" · ");return `<div class="item"><div class="item-title">${entry.type==="weight"?"Weight":"Measurements"}</div><div class="item-meta">${formatDate(entry.date)} · ${escapeHtml(detail)}</div><div class="item-actions"><button class="danger small" data-delete-body="${escapeHtml(entry.id)}" type="button">Delete</button></div></div>`}).join(""):`<p class="muted">No body entries yet.</p>`;
 }
 
 function applySettingsToUI() {
@@ -821,20 +927,17 @@ function exportBackup() {
 // Timer
 
 function renderHistory() {
-  if (!$("historyList")) return;
-  if (!workouts.length) { $("historyList").innerHTML = `<p class="muted">No workouts saved yet.</p>`; return; }
-  $("historyList").innerHTML = workouts.map((workout) => {
-    const names=(workout.exercises||[]).map(e=>e.exerciseName||exerciseById(e.exerciseId)?.name||"Exercise");
-    const sets=(workout.exercises||[]).reduce((n,e)=>n+(e.sets?.length||0),0);
-    return `<button class="item history-item" data-view-workout="${escapeHtml(workout.id)}" type="button"><div class="item-title">${escapeHtml(workout.routineName||names.join(" · ")||"Workout")}</div><div class="item-meta">${formatDate(workout.date)} · ${sets} completed set${sets===1?"":"s"}</div></button>`;
-  }).join("");
+  if(!$("historyList"))return;
+  if(!workouts.length){$("historyList").innerHTML=`<p class="muted">No workouts saved yet.</p>`;return;}
+  $("historyList").innerHTML=workouts.map(workout=>{const names=(workout.exercises||[]).map(e=>e.exerciseName||exerciseById(e.exerciseId)?.name||"Exercise");const sets=(workout.exercises||[]).reduce((n,e)=>n+(e.sets?.length||0),0);return `<div class="item"><button class="history-main" data-view-workout="${escapeHtml(workout.id)}" type="button"><div class="item-title">${escapeHtml(workout.routineName||names.join(" · ")||"Workout")}</div><div class="item-meta">${formatDate(workout.date)} · ${sets} completed set${sets===1?"":"s"}</div></button><div class="item-actions"><button class="secondary small" data-edit-workout="${escapeHtml(workout.id)}" type="button">Edit</button><button class="secondary small" data-copy-workout="${escapeHtml(workout.id)}" type="button">Copy to routine</button><button class="danger small" data-delete-workout="${escapeHtml(workout.id)}" type="button">Delete</button></div></div>`}).join("");
 }
-function openWorkoutHistory(id){
-  const workout=workouts.find(w=>w.id===id); if(!workout)return;
-  $("historyDialogTitle").textContent=workout.routineName||`Workout — ${formatDate(workout.date)}`;
-  $("historyDialogBody").innerHTML=(workout.exercises||[]).map(entry=>`<div class="item"><div class="item-title">${escapeHtml(entry.exerciseName||exerciseById(entry.exerciseId)?.name||"Exercise")}</div>${(entry.sets||[]).map((set,i)=>`<div class="item-meta">Set ${i+1}: ${set.inputType==="time"?`${set.reps} sec`:`${set.reps} reps @ ${set.weight||0} ${settings.unit}`}${set.side&&set.side!=="both"?` · ${escapeHtml(set.side)}`:""}${set.notes?` · ${escapeHtml(set.notes)}`:""}</div>`).join("")}</div>`).join("");
-  $("historyDialog").showModal();
-}
+function workoutDetailHtml(workout){return (workout.exercises||[]).map(entry=>`<div class="item"><div class="item-title">${escapeHtml(entry.exerciseName||exerciseById(entry.exerciseId)?.name||"Exercise")}</div>${(entry.sets||[]).map((set,i)=>`<div class="item-meta">Set ${i+1}: ${set.inputType==="time"?`${set.reps} sec`:set.inputType==="repsOnly"?`${set.reps} reps`:`${set.reps} reps @ ${set.weight||0} ${settings.unit}`}${set.side&&set.side!=="both"?` · ${escapeHtml(set.side)}`:""}${set.notes?` · ${escapeHtml(set.notes)}`:""}</div>`).join("")}</div>`).join("");}
+function openWorkoutHistory(id){const workout=workouts.find(w=>w.id===id);if(!workout)return;$("historyDialogTitle").textContent=workout.routineName||`Workout — ${formatDate(workout.date)}`;$("historyDialogBody").innerHTML=workoutDetailHtml(workout);$("historyDialog").showModal();}
+function openWorkoutEdit(id){const workout=workouts.find(w=>w.id===id);if(!workout)return;editingWorkoutId=id;$("workoutEditBody").innerHTML=`<label>Date<input id="editWorkoutDate" type="date" value="${escapeHtml(workout.date||today())}"/></label><label>Workout name<input id="editWorkoutName" value="${escapeHtml(workout.routineName||"")}" placeholder="Optional name"/></label>${(workout.exercises||[]).map((entry,ei)=>`<div class="edit-exercise-block"><h4>${escapeHtml(entry.exerciseName||"Exercise")}</h4>${(entry.sets||[]).map((set,si)=>`<div class="edit-set-row" data-edit-set="${ei}:${si}"><label>Reps/sec<input data-edit-field="reps" inputmode="decimal" value="${number(set.reps)}"/></label><label>Weight<input data-edit-field="weight" inputmode="decimal" value="${number(set.weight)}"/></label><label>Side<select data-edit-field="side"><option value="both" ${(set.side||"both")==="both"?"selected":""}>Both</option><option value="left" ${set.side==="left"?"selected":""}>Left</option><option value="right" ${set.side==="right"?"selected":""}>Right</option></select></label></div>`).join("")}</div>`).join("")}`;$("workoutEditDialog").showModal();}
+async function saveWorkoutEdit(){const workout=workouts.find(w=>w.id===editingWorkoutId);if(!workout)return;const updated=structuredClone(workout);updated.date=$("editWorkoutDate").value||today();updated.routineName=$("editWorkoutName").value.trim()||null;document.querySelectorAll("[data-edit-set]").forEach(row=>{const [ei,si]=row.dataset.editSet.split(":").map(number);row.querySelectorAll("[data-edit-field]").forEach(input=>{const field=input.dataset.editField;updated.exercises[ei].sets[si][field]=field==="side"?input.value:number(input.value);});});const payload={date:updated.date,routineName:updated.routineName,exercises:updated.exercises,updatedAt:serverTimestamp()};await setDoc(userDoc("workouts",updated.id),payload,{merge:true});const idx=workouts.findIndex(w=>w.id===updated.id);workouts[idx]={...workouts[idx],...payload};$("workoutEditDialog").close();renderHistory();renderPBs();showToast("Workout updated.");}
+async function deleteWorkoutById(id){if(!await askConfirm("Delete workout","This permanently removes the workout and may change your PBs."))return;await deleteDoc(userDoc("workouts",id));workouts=workouts.filter(w=>w.id!==id);renderHistory();renderPBs();renderExerciseLibrary();}
+async function copyWorkoutToRoutine(id){const workout=workouts.find(w=>w.id===id);if(!workout)return;const blocks=(workout.exercises||[]).map((entry,index)=>({id:crypto.randomUUID(),name:`Group ${index+1}`,rounds:Math.max(1,entry.sets?.length||1),restAfterRound:settings.defaultRest,exercises:[{exerciseId:entry.exerciseId,defaultReps:number(entry.sets?.[0]?.reps,10),defaultWeight:number(entry.sets?.[0]?.weight)}]}));const payload={name:`Copy of ${workout.routineName||formatDate(workout.date)}`,day:"",startDate:today(),endDate:"",notes:"Created from workout history",blocks,createdAt:serverTimestamp(),updatedAt:serverTimestamp()};const ref=await addDoc(userCollection("routines"),payload);routines.push({id:ref.id,...payload});routines.sort((a,b)=>a.name.localeCompare(b.name));renderRoutines();showToast("Workout copied to Routines.");}
+
 function mealPlanForWeek(){ return mealPlans.find(p=>p.id===isoDate(mealWeekStart)) || {id:isoDate(mealWeekStart),days:{}}; }
 function renderMealPlanner(){
   if(!$("mealPlannerGrid"))return;
@@ -946,18 +1049,14 @@ $("confirmOkBtn").onclick = () => { $("confirmDialog").close(); confirmResolver?
 
 document.querySelectorAll("[data-tab]").forEach((tab) => tab.onclick = () => switchTab(tab.dataset.tab));
 $("moreTileBtn").onclick = () => $("moreTiles").classList.toggle("hidden");
-$("exercise1Select").onchange = () => syncPairDefaults(1);
-$("exercise2Select").onchange = () => syncPairDefaults(2);
 $("quickAddExerciseBtn").onclick = () => { switchTab("library"); clearExerciseForm(); };
 $("demoBtn").onclick = () => { const exercise = selectedExercise(); if (exercise?.demo) window.open(exercise.demo, "_blank", "noopener"); };
-document.querySelectorAll("[data-pair-adjust]").forEach((button) => button.onclick = () => adjustPairValue(number(button.dataset.pairAdjust), button.dataset.kind, number(button.dataset.delta)));
-document.querySelectorAll("[data-side]").forEach((button) => button.onclick = () => { manualSide = button.dataset.side; renderSideButtons(); });
-$("saveRoundBtn").onclick = savePairRound;
+$("addRoundExerciseBtn").onclick = addManualExercise;
+$("savePassBtn").onclick = saveCurrentPass;
+$("addRoundBtn").onclick = startNextRound;
 $("finishPairWorkoutBtn").onclick = savePairWorkout;
 $("clearPairWorkoutBtn").onclick = () => resetManualEntry(true);
 $("toggleRoundNotesBtn").onclick = () => $("roundNotesWrap").classList.toggle("hidden");
-$("removeExercise2Btn").onclick = () => { secondExerciseEnabled = false; $("removeExercise2Btn").closest(".exercise-round-card").classList.add("hidden"); $("addExercise2Btn").classList.remove("hidden"); };
-$("addExercise2Btn").onclick = () => { secondExerciseEnabled = true; $("exercise2Controls").closest(".exercise-round-card").classList.remove("hidden"); $("addExercise2Btn").classList.add("hidden"); };
 $("saveWeightBtn").onclick = () => saveBody("weight");
 $("saveMeasurementsBtn").onclick = () => saveBody("measurements");
 $("saveExerciseBtn").onclick = saveExercise;
@@ -975,14 +1074,22 @@ document.querySelectorAll("[data-timer-mode]").forEach((button) => button.onclic
 document.querySelectorAll("[data-seconds]").forEach((button) => button.onclick = () => { running = false; clearInterval(timerHandle); countdownMs = number(button.dataset.seconds) * 1000; renderTimer(); $("timerStatus").textContent = `${button.dataset.seconds} second rest selected`; });
 
 // Delegated events
-$("completedRounds").onclick = (event) => {
-  const button = event.target.closest("[data-remove-round]");
-  if (!button) return;
-  manualRounds.splice(number(button.dataset.removeRound), 1);
-  manualRounds.forEach((round, index) => { round.roundNumber = index + 1; });
-  $("roundHeading").textContent = `Round ${manualRounds.length + 1}`;
-  renderCompletedRounds();
+$("roundExerciseList").onclick = (event) => {
+  const card = event.target.closest("[data-group-uid]"); if (!card) return;
+  const item = manualGroupExercises.find(entry => entry.uid === card.dataset.groupUid); if (!item) return;
+  const adjust = event.target.closest("[data-group-adjust]");
+  if (adjust) { syncManualGroupFromDOM(); const exercise=exerciseById(item.exerciseId); const field=adjust.dataset.groupAdjust; const step=field==="reps"?1:number(exercise?.weightStep,2.5); item[field]=Math.max(0,number(item[field])+number(adjust.dataset.delta)*step); return renderManualRound(); }
+  const side = event.target.closest("[data-group-side]"); if (side) { item.side=side.dataset.groupSide; return renderManualRound(); }
+  if (event.target.closest("[data-save-single-set]")) return saveOneSet(item.uid);
+  if (event.target.closest("[data-add-target-set]")) { syncManualGroupFromDOM(); item.targetSets += 1; return renderManualRound(); }
+  if (event.target.closest("[data-remove-group-exercise]")) { syncManualGroupFromDOM(); manualGroupExercises=manualGroupExercises.filter(entry=>entry.uid!==item.uid); return renderManualRound(); }
+  const edit = event.target.closest("[data-edit-inline-set]"); if (edit) { const idx=number(edit.dataset.editInlineSet); const set=item.completedSets[idx]; if(!set)return; item.reps=set.reps; item.weight=set.weight; item.side=set.side||"both"; item.completedSets.splice(idx,1); const pos=manualRounds.findIndex(round=>(round.entries||[]).some(entry=>entry.completedAt===set.completedAt)); if(pos>=0)manualRounds.splice(pos,1); return renderManualRound(); }
 };
+$("roundExerciseList").onchange = (event) => {
+  const card=event.target.closest("[data-group-uid]"); if(!card)return; const item=manualGroupExercises.find(entry=>entry.uid===card.dataset.groupUid); if(!item)return;
+  if(event.target.dataset.groupField==="exerciseId"){item.exerciseId=event.target.value; const ex=exerciseById(item.exerciseId); item.reps=ex?.defaultReps||10; item.weight=ex?.defaultWeight||0; item.side="both"; renderManualRound();}
+};
+$("completedRounds").onclick = (event) => { const button=event.target.closest("[data-edit-round]"); if(button) editCompletedRound(number(button.dataset.editRound)); };
 
 $("recentWorkouts")?.addEventListener("click", async (event) => {
   const button = event.target.closest("[data-delete-workout]");
@@ -993,7 +1100,7 @@ $("recentWorkouts")?.addEventListener("click", async (event) => {
   renderRecentWorkouts(); renderPBs(); renderExerciseLibrary(); renderHistory();
 });
 
-$("bodyEntries").onclick = async (event) => {
+$("bodyHistoryList").onclick = async (event) => {
   const button = event.target.closest("[data-delete-body]");
   if (!button) return;
   await deleteDoc(userDoc("bodyEntries", button.dataset.deleteBody));
@@ -1081,8 +1188,21 @@ $("routineSessionCard").onchange = (event) => {
 };
 
 $("workoutDate").value = today();
-$("historyList")?.addEventListener("click", (event) => { const button=event.target.closest("[data-view-workout]"); if(button) openWorkoutHistory(button.dataset.viewWorkout); });
+$("historyList")?.addEventListener("click", async (event) => {
+  const view=event.target.closest("[data-view-workout]"); if(view)return openWorkoutHistory(view.dataset.viewWorkout);
+  const edit=event.target.closest("[data-edit-workout]"); if(edit)return openWorkoutEdit(edit.dataset.editWorkout);
+  const copy=event.target.closest("[data-copy-workout]"); if(copy)return copyWorkoutToRoutine(copy.dataset.copyWorkout);
+  const del=event.target.closest("[data-delete-workout]"); if(del)return deleteWorkoutById(del.dataset.deleteWorkout);
+});
 $("historyDialogClose")?.addEventListener("click",()=>$("historyDialog").close());
+$("workoutEditClose")?.addEventListener("click",()=>$("workoutEditDialog").close());
+$("saveWorkoutEditBtn")?.addEventListener("click",saveWorkoutEdit);
+$("pbList")?.addEventListener("click",event=>{const button=event.target.closest("[data-pb-exercise]");if(button)openPBChart(button.dataset.pbExercise,button.dataset.pbSide);});
+$("pbChartClose")?.addEventListener("click",()=>$("pbChartDialog").close());
+$("bodyHistoryBtn")?.addEventListener("click",()=>{renderBodyHistory();$("bodyHistoryDialog").showModal();});
+$("bodyHistoryClose")?.addEventListener("click",()=>$("bodyHistoryDialog").close());
+document.querySelectorAll("[data-body-chart]").forEach(button=>button.addEventListener("click",()=>{bodyChartMode=button.dataset.bodyChart;document.querySelectorAll("[data-body-chart]").forEach(b=>b.classList.toggle("active",b===button));$("measurementChartChoice").classList.toggle("hidden",bodyChartMode!=="measurement");renderBodyChart();}));
+$("measurementChartSelect")?.addEventListener("change",renderBodyChart);
 $("showWeightFormBtn")?.addEventListener("click",()=>{ $("weightFormCard").classList.remove("hidden"); $("measureFormCard").classList.add("hidden"); });
 $("showMeasureFormBtn")?.addEventListener("click",()=>{ $("measureFormCard").classList.remove("hidden"); $("weightFormCard").classList.add("hidden"); });
 document.querySelectorAll("[data-close-body-form]").forEach(b=>b.addEventListener("click",()=>b.closest(".card").classList.add("hidden")));
