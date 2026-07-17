@@ -45,6 +45,8 @@ let exercises = [];
 let workouts = [];
 let routines = [];
 let bodyEntries = [];
+let mealPlans = [];
+let mealWeekStart = startOfWeek(new Date());
 let settings = { unit: "kg", weightMode: "total", measureUnit: "cm", defaultRest: 60 };
 let manualSets = [];
 let manualSide = "both";
@@ -93,6 +95,11 @@ function formatDate(date) {
   if (!date) return "Unknown date";
   return new Date(`${date}T12:00:00`).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }
+function startOfWeek(date) { const d = new Date(date); const day = (d.getDay()+6)%7; d.setHours(12,0,0,0); d.setDate(d.getDate()-day); return d; }
+function isoDate(date){ return date.toISOString().slice(0,10); }
+function addDays(date, amount){ const d=new Date(date); d.setDate(d.getDate()+amount); return d; }
+function pageTitle(name){ return ({dashboard:"Dashboard",workout:"Workout",routines:"Routines",history:"Workout history",pbs:"Personal bests",body:"Body tracking",food:"Meal planner",timer:"Timer",library:"Exercises",settings:"Settings"})[name] || "Frever Fitness"; }
+
 function showToast(message) {
   $("toastText").textContent = message;
   if (!$("toastDialog").open) $("toastDialog").showModal();
@@ -104,10 +111,9 @@ function askConfirm(title, text) {
   return new Promise((resolve) => { confirmResolver = resolve; });
 }
 function switchTab(tabName) {
-  document.querySelectorAll(".tab,.panel").forEach((element) => element.classList.remove("active"));
-  const tab = document.querySelector(`.tab[data-tab="${tabName}"]`);
-  if (tab) tab.classList.add("active");
+  document.querySelectorAll(".panel").forEach((element) => element.classList.remove("active"));
   $(tabName)?.classList.add("active");
+  if ($("activePageTitle")) $("activePageTitle").textContent = pageTitle(tabName);
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -129,11 +135,12 @@ async function loadCollection(name) {
 
 async function loadAll() {
   await seedExercisesIfNeeded();
-  [exercises, workouts, routines, bodyEntries] = await Promise.all([
+  [exercises, workouts, routines, bodyEntries, mealPlans] = await Promise.all([
     loadCollection("exercises"),
     loadCollection("workouts"),
     loadCollection("routines"),
-    loadCollection("bodyEntries")
+    loadCollection("bodyEntries"),
+    loadCollection("mealPlans")
   ]);
   const settingsSnapshot = await getDoc(doc(db, "users", currentUser.uid, "profile", "settings"));
   if (settingsSnapshot.exists()) settings = { ...settings, ...settingsSnapshot.data() };
@@ -151,6 +158,8 @@ function renderEverything() {
   renderPBs();
   renderBody();
   renderRoutines();
+  renderHistory();
+  renderMealPlanner();
   applySettingsToUI();
   resetManualEntry(true);
 }
@@ -170,10 +179,10 @@ function updateExerciseInfo() {
   }
   const tracking = exercise.mode === "leftRight" ? "Left and right tracked separately" : exercise.mode === "sideOptional" ? "Side can be selected" : "Both sides tracked together";
   const input = exercise.inputType === "time" ? "Timed exercise" : exercise.inputType === "repsOnly" ? "Reps only" : "Reps and weight";
-  $("exerciseInfo").innerHTML = `<strong>${escapeHtml(exercise.category || "Other")}</strong> · ${escapeHtml(exercise.equipment || "No equipment set")}<br>${escapeHtml(tracking)} · ${escapeHtml(input)}`;
+  $("exerciseInfo").textContent = "";
   $("demoBtn").disabled = !exercise.demo;
   $("sideWrap").classList.toggle("hidden", exercise.mode === "standard");
-  $("weightValue").closest(".stepper-block").classList.toggle("hidden", exercise.inputType !== "repsWeight");
+  document.querySelector(".weight-row")?.classList.toggle("hidden", exercise.inputType === "time");
   $("repsValue").value = exercise.defaultReps ?? 10;
   $("weightValue").value = exercise.defaultWeight ?? 0;
   $("weightStepText").textContent = exercise.weightStep ?? 2.5;
@@ -209,8 +218,8 @@ function currentSetFromInputs() {
     setNumber: manualSets.length + 1,
     side: exercise?.mode === "standard" ? "both" : manualSide,
     reps: number($("repsValue").value),
-    weight: exercise?.inputType === "repsWeight" ? number($("weightValue").value) : 0,
-    inputType: exercise?.inputType || "repsWeight",
+    weight: exercise?.inputType === "time" ? 0 : number($("weightValue").value),
+    inputType: exercise?.inputType === "time" ? "time" : "repsWeight",
     notes: $("setNotes").value.trim(),
     completedAt: new Date().toISOString()
   };
@@ -254,7 +263,7 @@ function renderCompletedSets() {
   $("completedSets").innerHTML = manualSets.map((set, index) => {
     const value = set.inputType === "time" ? `${set.reps} sec` : set.inputType === "repsOnly" ? `${set.reps} reps` : `${set.reps} reps × ${set.weight} ${settings.unit}`;
     const side = set.side && set.side !== "both" ? ` · ${set.side}` : "";
-    return `<div class="complete-item done"><div><strong>✓ Set ${index + 1}</strong><div class="item-meta">${escapeHtml(value)}${escapeHtml(side)} ${set.isPB ? "· PB" : ""}</div></div><button class="danger small" data-remove-manual-set="${index}" type="button">Remove</button></div>`;
+    return `<div class="complete-item"><div><strong>✓ Set ${index + 1}</strong><div class="item-meta">${escapeHtml(value)}${escapeHtml(side)} ${set.isPB ? "· PB" : ""}</div></div><button class="danger small" data-remove-manual-set="${index}" type="button">Remove</button></div>`;
   }).join("");
 }
 
@@ -275,6 +284,7 @@ async function saveManualWorkout() {
   resetManualEntry(true);
   renderRecentWorkouts();
   renderPBs();
+  renderHistory();
   showToast("Workout saved.");
 }
 
@@ -768,7 +778,7 @@ async function saveSettings() {
 }
 
 function exportBackup() {
-  const backup = { exportedAt: new Date().toISOString(), exercises, routines, workouts, bodyEntries, settings };
+  const backup = { exportedAt: new Date().toISOString(), exercises, routines, workouts, bodyEntries, mealPlans, settings };
   const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
@@ -779,6 +789,36 @@ function exportBackup() {
 }
 
 // Timer
+
+function renderHistory() {
+  if (!$("historyList")) return;
+  if (!workouts.length) { $("historyList").innerHTML = `<p class="muted">No workouts saved yet.</p>`; return; }
+  $("historyList").innerHTML = workouts.map((workout) => {
+    const names=(workout.exercises||[]).map(e=>e.exerciseName||exerciseById(e.exerciseId)?.name||"Exercise");
+    const sets=(workout.exercises||[]).reduce((n,e)=>n+(e.sets?.length||0),0);
+    return `<button class="item history-item" data-view-workout="${escapeHtml(workout.id)}" type="button"><div class="item-title">${escapeHtml(workout.routineName||names.join(" · ")||"Workout")}</div><div class="item-meta">${formatDate(workout.date)} · ${sets} completed set${sets===1?"":"s"}</div></button>`;
+  }).join("");
+}
+function openWorkoutHistory(id){
+  const workout=workouts.find(w=>w.id===id); if(!workout)return;
+  $("historyDialogTitle").textContent=workout.routineName||`Workout — ${formatDate(workout.date)}`;
+  $("historyDialogBody").innerHTML=(workout.exercises||[]).map(entry=>`<div class="item"><div class="item-title">${escapeHtml(entry.exerciseName||exerciseById(entry.exerciseId)?.name||"Exercise")}</div>${(entry.sets||[]).map((set,i)=>`<div class="item-meta">Set ${i+1}: ${set.inputType==="time"?`${set.reps} sec`:`${set.reps} reps @ ${set.weight||0} ${settings.unit}`}${set.side&&set.side!=="both"?` · ${escapeHtml(set.side)}`:""}${set.notes?` · ${escapeHtml(set.notes)}`:""}</div>`).join("")}</div>`).join("");
+  $("historyDialog").showModal();
+}
+function mealPlanForWeek(){ return mealPlans.find(p=>p.id===isoDate(mealWeekStart)) || {id:isoDate(mealWeekStart),days:{}}; }
+function renderMealPlanner(){
+  if(!$("mealPlannerGrid"))return;
+  const plan=mealPlanForWeek();
+  $("mealWeekLabel").textContent=`${formatDate(isoDate(mealWeekStart))} – ${formatDate(isoDate(addDays(mealWeekStart,6)))}`;
+  const names=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+  $("mealPlannerGrid").innerHTML=names.map((name,i)=>{const key=isoDate(addDays(mealWeekStart,i)); const day=plan.days?.[key]||{}; return `<div class="meal-day"><h3>${name}</h3><small>${formatDate(key)}</small>${["Breakfast","Lunch","Dinner","Snacks"].map(slot=>`<label>${slot}<textarea data-meal-date="${key}" data-meal-slot="${slot.toLowerCase()}" placeholder="Plan ${slot.toLowerCase()}">${escapeHtml(day[slot.toLowerCase()]||"")}</textarea></label>`).join("")}</div>`}).join("");
+}
+async function saveMealWeek(){
+  const days={}; document.querySelectorAll("[data-meal-date]").forEach(el=>{const date=el.dataset.mealDate; days[date] ||= {}; days[date][el.dataset.mealSlot]=el.value.trim();});
+  const id=isoDate(mealWeekStart); const payload={weekStart:id,days,updatedAt:serverTimestamp()}; await setDoc(userDoc("mealPlans",id),payload,{merge:true});
+  const idx=mealPlans.findIndex(p=>p.id===id); if(idx>=0) mealPlans[idx]={id,...mealPlans[idx],...payload}; else mealPlans.push({id,...payload}); showToast("Meal plan saved.");
+}
+
 let timerMode = "stopwatch";
 let timerHandle = null;
 let running = false;
@@ -1007,6 +1047,15 @@ $("routineSessionCard").onchange = (event) => {
 };
 
 $("workoutDate").value = today();
+$("historyList")?.addEventListener("click", (event) => { const button=event.target.closest("[data-view-workout]"); if(button) openWorkoutHistory(button.dataset.viewWorkout); });
+$("historyDialogClose")?.addEventListener("click",()=>$("historyDialog").close());
+$("showWeightFormBtn")?.addEventListener("click",()=>{ $("weightFormCard").classList.remove("hidden"); $("measureFormCard").classList.add("hidden"); });
+$("showMeasureFormBtn")?.addEventListener("click",()=>{ $("measureFormCard").classList.remove("hidden"); $("weightFormCard").classList.add("hidden"); });
+document.querySelectorAll("[data-close-body-form]").forEach(b=>b.addEventListener("click",()=>b.closest(".card").classList.add("hidden")));
+$("prevMealWeekBtn")?.addEventListener("click",()=>{mealWeekStart=addDays(mealWeekStart,-7);renderMealPlanner();});
+$("nextMealWeekBtn")?.addEventListener("click",()=>{mealWeekStart=addDays(mealWeekStart,7);renderMealPlanner();});
+$("saveMealWeekBtn")?.addEventListener("click",saveMealWeek);
+
 $("bodyDate").value = today();
 $("routineStartDate").value = today();
 renderTimer();

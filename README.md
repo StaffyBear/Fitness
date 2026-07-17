@@ -1,98 +1,40 @@
-# Frever Fitness v2
+# Frever Fitness v3
 
-A static GitHub Pages app using Firebase Authentication and Cloud Firestore.
+A GitHub Pages web app using Firebase Authentication and Firestore.
 
-## What is new in v2
+## Updating the existing app
 
-- Exercises are stored in Firestore under each user account.
-- Large plus/minus controls for reps, seconds and weight.
-- Complete one set at a time and automatically start a rest timer.
-- Personal best detection.
-- Routine templates.
-- Routine groups can contain one exercise, a superset, or three or more exercises.
-- Each group can repeat for a chosen number of rounds.
-- During a routine you can swap or skip an exercise for that workout only.
-- Editing the routine changes future sessions without altering workout history.
-- Starter Monday, Tuesday and Thursday exercises are seeded into Firestore on first login.
+1. Extract this ZIP.
+2. Copy `index.html`, `styles.css`, `app.js`, `firestore.rules` and this README into the root of the existing Fitness GitHub repository.
+3. Replace the older files.
+4. Commit and push to `main`.
+5. GitHub Pages will redeploy automatically.
 
-## GitHub Pages installation
+Existing Firebase users, exercises, routines, workouts and body entries remain in the same project.
 
-1. Extract the ZIP.
-2. Copy all files into the root of your existing Fitness GitHub repository.
-3. Commit the changes and push them to the `main` branch.
-4. GitHub Pages will redeploy automatically.
+## v3 changes
 
-The repository root should contain:
+- Wishlist-style dashboard tile layout.
+- Workout date condensed beside the page title.
+- Removed the exercise information box and quick-add button from the workout screen.
+- Larger gym-style reps and weight controls.
+- Weight is available for every non-timed exercise.
+- Dedicated workout-history page and workout detail view.
+- Condensed body dashboard with separate add-entry forms.
+- Weekly meal planner with breakfast, lunch, dinner and snacks.
+- Existing routines, supersets, PBs, timer, exercise library and settings retained.
 
-```text
-index.html
-styles.css
-app.js
-firestore.rules
-README.md
-```
+## Firestore rules
 
-## Firestore security rules
-
-This app stores everything below:
+The app expects all user data beneath `users/{uid}/...`.
 
 ```text
-users/{firebase-user-id}/...
-```
-
-In Firebase, open **Firestore → Rules** and deploy the contents of `firestore.rules`:
-
-```javascript
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
     match /users/{userId}/{document=**} {
-      allow read, write: if request.auth != null
-        && request.auth.uid == userId;
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
   }
 }
 ```
-
-These rules require login and prevent one user from reading another user’s records.
-
-## Firestore structure
-
-Firestore is NoSQL, so it uses collections/documents rather than SQL tables:
-
-```text
-users
-  userId
-    exercises
-      exerciseId
-    routines
-      routineId
-    workouts
-      workoutId
-    bodyEntries
-      bodyEntryId
-    profile
-      settings
-```
-
-The starter exercises are written into the `exercises` collection the first time a new user logs in. After that, the app reads the exercise dropdown from Firestore.
-
-## Routine behaviour
-
-A group with Leg Press and Underhand Lat Pulldown set to 3 rounds runs as:
-
-```text
-Leg Press — round 1
-Underhand Lat Pulldown — round 1
-Leg Press — round 2
-Underhand Lat Pulldown — round 2
-Leg Press — round 3
-Underhand Lat Pulldown — round 3
-```
-
-During a workout:
-
-- **Swap for today only** changes the exercise only in the active session.
-- **Skip today** moves to the next exercise without modifying the routine.
-- Editing a routine affects future workouts only.

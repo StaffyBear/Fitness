@@ -35,227 +35,78 @@
   </section>
 
   <section id="appPanel" class="hidden">
-    <nav class="tabs" aria-label="Main sections">
-      <button class="tab active" data-tab="workout" type="button">Workout</button>
-      <button class="tab" data-tab="routines" type="button">Routines</button>
-      <button class="tab" data-tab="pbs" type="button">PBs</button>
-      <button class="tab" data-tab="body" type="button">Body</button>
-      <button class="tab" data-tab="timer" type="button">Timer</button>
-      <button class="tab" data-tab="library" type="button">Exercises</button>
-      <button class="tab" data-tab="settings" type="button">Settings</button>
+    <nav class="top-nav" aria-label="App navigation">
+      <button class="home-button" data-tab="dashboard" type="button">⌂ Home</button>
+      <span id="activePageTitle">Dashboard</span>
     </nav>
 
-    <section id="workout" class="panel active">
+    <section id="dashboard" class="panel active">
+      <div class="welcome-card">
+        <p class="eyebrow">Frever Fitness</p>
+        <h2>What are we doing today?</h2>
+      </div>
+      <div class="tile-grid">
+        <button class="nav-tile tile-feature" data-tab="workout" type="button"><span>🏋️</span><strong>Start workout</strong><small>Log sets, reps and weight</small></button>
+        <button class="nav-tile" data-tab="routines" type="button"><span>📋</span><strong>Routines</strong><small>Follow or adapt your plan</small></button>
+        <button class="nav-tile" data-tab="history" type="button"><span>🕘</span><strong>Workout history</strong><small>Review previous sessions</small></button>
+        <button class="nav-tile" data-tab="pbs" type="button"><span>🏆</span><strong>Personal bests</strong><small>Your strongest sets</small></button>
+        <button class="nav-tile" data-tab="body" type="button"><span>📏</span><strong>Body tracking</strong><small>Weight and measurements</small></button>
+        <button class="nav-tile" data-tab="food" type="button"><span>🍽️</span><strong>Meal planner</strong><small>Plan the week ahead</small></button>
+        <button class="nav-tile" data-tab="timer" type="button"><span>⏱️</span><strong>Timer</strong><small>Stopwatch and rest timer</small></button>
+        <button class="nav-tile" data-tab="library" type="button"><span>💪</span><strong>Exercises</strong><small>Manage your exercise list</small></button>
+        <button class="nav-tile" data-tab="settings" type="button"><span>⚙️</span><strong>Settings</strong><small>Units, rest and backup</small></button>
+      </div>
+    </section>
+
+    <section id="workout" class="panel">
       <div id="routineSessionCard" class="card hidden"></div>
-
-      <div id="manualWorkoutCard" class="card">
-        <div class="row between gap">
-          <div>
-            <h2>Log workout</h2>
-            <p class="muted compact">Choose an exercise, then complete each set using the large controls.</p>
-          </div>
-          <button id="startFromRoutineBtn" class="secondary small" type="button">Start a routine</button>
+      <div id="manualWorkoutCard" class="card compact-card">
+        <div class="title-date-row">
+          <h2>Log workout</h2>
+          <input id="workoutDate" class="date-inline" type="date" aria-label="Workout date" />
         </div>
-        <label>Date<input id="workoutDate" type="date" /></label>
+        <button id="startFromRoutineBtn" class="secondary small" type="button">Start a routine</button>
         <label>Exercise<select id="exerciseSelect"></select></label>
-        <div id="exerciseInfo" class="info-box"></div>
-        <div class="row gap">
-          <button id="demoBtn" class="secondary" type="button">Show demo</button>
-          <button id="quickAddExerciseBtn" class="ghost" type="button">Add exercise</button>
-        </div>
+        <div id="exerciseInfo" class="hidden"></div>
+        <div class="row gap"><button id="demoBtn" class="secondary" type="button">Show demo</button><button id="quickAddExerciseBtn" class="hidden" type="button">Add exercise</button></div>
       </div>
 
-      <div id="manualSetCard" class="card">
-        <div class="row between gap">
-          <h3 id="setHeading">Set 1</h3>
-          <span id="pbHint" class="pb-badge hidden">PB</span>
-        </div>
-
-        <div id="sideWrap" class="segmented hidden">
-          <button data-side="left" class="active" type="button">Left</button>
-          <button data-side="right" type="button">Right</button>
-          <button data-side="both" type="button">Both</button>
-        </div>
-
-        <div class="stepper-block">
-          <div class="stepper-label">Reps</div>
-          <div class="stepper">
-            <button data-adjust="reps" data-delta="-1" type="button" aria-label="Decrease reps">−</button>
-            <input id="repsValue" inputmode="numeric" value="10" aria-label="Reps" />
-            <button data-adjust="reps" data-delta="1" type="button" aria-label="Increase reps">+</button>
-          </div>
-        </div>
-
-        <div class="stepper-block">
-          <div class="stepper-label">Weight (<span id="weightUnitLabel">kg</span>)</div>
-          <div class="stepper">
-            <button data-adjust="weight" data-delta="-1" type="button" aria-label="Decrease weight">−</button>
-            <input id="weightValue" inputmode="decimal" value="0" aria-label="Weight" />
-            <button data-adjust="weight" data-delta="1" type="button" aria-label="Increase weight">+</button>
-          </div>
-          <p class="muted compact centre">Step: <span id="weightStepText">2.5</span> <span id="weightUnitText">kg</span></p>
-        </div>
-
-        <label>Notes<textarea id="setNotes" rows="2" placeholder="Optional form note, seat setting, pain, etc."></textarea></label>
-        <button id="completeSetBtn" class="primary wide" type="button">Complete set</button>
-
-        <div class="completed-wrap">
-          <h4>Completed sets</h4>
-          <div id="completedSets" class="stack"></div>
-        </div>
-        <div class="row gap">
-          <button id="saveManualWorkoutBtn" class="primary" type="button">Finish & save exercise</button>
-          <button id="clearManualWorkoutBtn" class="ghost" type="button">Clear</button>
-        </div>
-      </div>
-
-      <div class="card">
-        <h3>Recent workouts</h3>
-        <div id="recentWorkouts" class="stack"></div>
+      <div id="manualSetCard" class="card set-entry-card">
+        <div class="set-topline"><h3 id="setHeading">Set 1</h3><span id="pbHint" class="pb-badge hidden">NEW PB</span></div>
+        <div id="sideWrap" class="segmented hidden"><button data-side="left" class="active" type="button">Left</button><button data-side="right" type="button">Right</button><button data-side="both" type="button">Both</button></div>
+        <div class="gym-control-row"><span>REPS</span><button data-adjust="reps" data-delta="-1" type="button">−</button><input id="repsValue" inputmode="numeric" value="10" aria-label="Reps" /><button data-adjust="reps" data-delta="1" type="button">+</button></div>
+        <div class="gym-control-row weight-row"><span>WEIGHT (<b id="weightUnitLabel">kg</b>)</span><button data-adjust="weight" data-delta="-1" type="button">−</button><input id="weightValue" inputmode="decimal" value="0" aria-label="Weight" /><button data-adjust="weight" data-delta="1" type="button">+</button></div>
+        <p class="muted compact centre">Changes by <span id="weightStepText">2.5</span> <span id="weightUnitText">kg</span></p>
+        <button id="completeSetBtn" class="round-complete" type="button" aria-label="Complete set">✓</button>
+        <label class="notes-line">Notes<textarea id="setNotes" rows="2" placeholder="Optional note, seat setting, pain, etc."></textarea></label>
+        <div class="completed-wrap"><h4>Completed</h4><div id="completedSets" class="completed-list"></div></div>
+        <div class="row gap"><button id="saveManualWorkoutBtn" class="primary" type="button">Finish & save exercise</button><button id="clearManualWorkoutBtn" class="ghost" type="button">Clear</button></div>
       </div>
     </section>
 
     <section id="routines" class="panel">
-      <div class="card">
-        <div class="row between gap">
-          <div>
-            <h2>Routines</h2>
-            <p class="muted compact">Build single exercises, supersets or larger groups and repeat them for a chosen number of rounds.</p>
-          </div>
-          <button id="newRoutineBtn" class="primary small" type="button">+ New routine</button>
-        </div>
-        <div id="routineList" class="stack"></div>
-      </div>
-
-      <div id="routineEditor" class="card hidden">
-        <div class="row between gap">
-          <h2 id="routineEditorTitle">New routine</h2>
-          <button id="closeRoutineEditorBtn" class="ghost small" type="button">Close</button>
-        </div>
-        <div class="grid two">
-          <label>Name<input id="routineName" placeholder="Monday — Legs / Mixed" /></label>
-          <label>Day / label<input id="routineDay" placeholder="Monday" /></label>
-          <label>Start date<input id="routineStartDate" type="date" /></label>
-          <label>End date (optional)<input id="routineEndDate" type="date" /></label>
-        </div>
-        <label>Notes<textarea id="routineNotes" rows="2" placeholder="Focus, progression plan, reminders..."></textarea></label>
-        <div class="row between gap">
-          <h3>Exercise groups</h3>
-          <button id="addRoutineBlockBtn" class="secondary small" type="button">+ Add group</button>
-        </div>
-        <div id="routineBlocks" class="stack"></div>
-        <button id="saveRoutineBtn" class="primary" type="button">Save routine</button>
-      </div>
+      <div class="card"><div class="row between gap"><div><h2>Routines</h2><p class="muted compact">Build single exercises, supersets or larger groups.</p></div><button id="newRoutineBtn" class="primary small" type="button">+ New routine</button></div><div id="routineList" class="tile-list"></div></div>
+      <div id="routineEditor" class="card hidden"><div class="row between gap"><h2 id="routineEditorTitle">New routine</h2><button id="closeRoutineEditorBtn" class="ghost small" type="button">Close</button></div><div class="grid two"><label>Name<input id="routineName" placeholder="Monday — Legs / Mixed" /></label><label>Day / label<input id="routineDay" placeholder="Monday" /></label><label>Start date<input id="routineStartDate" type="date" /></label><label>End date (optional)<input id="routineEndDate" type="date" /></label></div><label>Notes<textarea id="routineNotes" rows="2"></textarea></label><div class="row between gap"><h3>Exercise groups</h3><button id="addRoutineBlockBtn" class="secondary small" type="button">+ Add group</button></div><div id="routineBlocks" class="stack"></div><button id="saveRoutineBtn" class="primary" type="button">Save routine</button></div>
     </section>
 
-    <section id="pbs" class="panel">
-      <div class="card">
-        <h2>Personal bests</h2>
-        <p class="muted">Calculated from completed sets. Left and right sides are tracked separately.</p>
-        <div id="pbList" class="stack"></div>
-      </div>
-    </section>
+    <section id="history" class="panel"><div class="card"><h2>Workout history</h2><p class="muted">Tap a workout to see every exercise and completed set.</p><div id="historyList" class="tile-list"></div></div></section>
+    <section id="pbs" class="panel"><div class="card"><h2>Personal bests</h2><p class="muted">Calculated from completed sets. Left and right are tracked separately.</p><div id="pbList" class="tile-list"></div></div></section>
 
     <section id="body" class="panel">
-      <div class="card">
-        <h2>Body tracking</h2>
-        <label>Date<input id="bodyDate" type="date" /></label>
-        <label>Weight<input id="bodyWeight" inputmode="decimal" placeholder="e.g. 76.5" /></label>
-        <button id="saveWeightBtn" class="primary" type="button">Save weight</button>
-      </div>
-      <div class="card">
-        <h3>Measurements</h3>
-        <div class="grid two">
-          <label>Waist<input id="mWaist" inputmode="decimal" /></label>
-          <label>Hips<input id="mHips" inputmode="decimal" /></label>
-          <label>Chest<input id="mChest" inputmode="decimal" /></label>
-          <label>Left arm<input id="mLeftArm" inputmode="decimal" /></label>
-          <label>Right arm<input id="mRightArm" inputmode="decimal" /></label>
-          <label>Left leg<input id="mLeftLeg" inputmode="decimal" /></label>
-          <label>Right leg<input id="mRightLeg" inputmode="decimal" /></label>
-        </div>
-        <button id="saveMeasurementsBtn" class="primary" type="button">Save measurements</button>
-      </div>
-      <div class="card">
-        <h3>Progress</h3>
-        <div id="bodySummary" class="summary-grid"></div>
-        <h4>Recent body entries</h4>
-        <div id="bodyEntries" class="stack"></div>
-      </div>
+      <div class="body-summary-grid" id="bodySummary"></div>
+      <div class="action-tiles"><button id="showWeightFormBtn" class="action-tile" type="button">+ Add weight</button><button id="showMeasureFormBtn" class="action-tile" type="button">+ Add measurements</button></div>
+      <div id="weightFormCard" class="card hidden"><div class="row between"><h3>Add weight</h3><button class="ghost small" data-close-body-form type="button">Close</button></div><label>Date<input id="bodyDate" type="date" /></label><label>Weight<input id="bodyWeight" inputmode="decimal" placeholder="e.g. 76.5" /></label><button id="saveWeightBtn" class="primary" type="button">Save weight</button></div>
+      <div id="measureFormCard" class="card hidden"><div class="row between"><h3>Add measurements</h3><button class="ghost small" data-close-body-form type="button">Close</button></div><div class="grid two"><label>Waist<input id="mWaist" inputmode="decimal" /></label><label>Hips<input id="mHips" inputmode="decimal" /></label><label>Chest<input id="mChest" inputmode="decimal" /></label><label>Left arm<input id="mLeftArm" inputmode="decimal" /></label><label>Right arm<input id="mRightArm" inputmode="decimal" /></label><label>Left thigh<input id="mLeftLeg" inputmode="decimal" /></label><label>Right thigh<input id="mRightLeg" inputmode="decimal" /></label></div><button id="saveMeasurementsBtn" class="primary" type="button">Save measurements</button></div>
+      <div class="card"><div class="row between"><h3>Recent entries</h3></div><div id="bodyEntries" class="stack"></div></div>
     </section>
 
-    <section id="timer" class="panel">
-      <div class="card">
-        <h2>Timer</h2>
-        <div class="mode-switch">
-          <button class="active" data-timer-mode="stopwatch" type="button">Stopwatch</button>
-          <button data-timer-mode="countdown" type="button">Rest timer</button>
-        </div>
-        <div id="timerDisplay" class="timer-display">00:00.0</div>
-        <p id="timerStatus" class="timer-status">Ready</p>
-        <div class="timer-controls">
-          <button id="timerStartBtn" class="primary" type="button">Start</button>
-          <button id="timerResetBtn" class="secondary" type="button">Reset</button>
-        </div>
-        <div id="timerPresetWrap" class="timer-presets hidden">
-          <button class="secondary" data-seconds="30" type="button">30 sec</button>
-          <button class="secondary" data-seconds="60" type="button">60 sec</button>
-          <button class="secondary" data-seconds="90" type="button">90 sec</button>
-          <button class="secondary" data-seconds="120" type="button">2 min</button>
-        </div>
-      </div>
-    </section>
+    <section id="food" class="panel"><div class="card"><div class="row between gap"><div><h2>Meal planner</h2><p class="muted compact">Plan meals without needing to calorie-track them.</p></div><button id="saveMealWeekBtn" class="primary small" type="button">Save week</button></div><div class="week-switch"><button id="prevMealWeekBtn" type="button">‹</button><strong id="mealWeekLabel"></strong><button id="nextMealWeekBtn" type="button">›</button></div><div id="mealPlannerGrid" class="meal-grid"></div></div></section>
 
-    <section id="library" class="panel">
-      <div class="card">
-        <h2>Exercise library</h2>
-        <p class="muted">Exercises are stored in your Firestore database, not only in the website code.</p>
-        <input id="exerciseSearch" placeholder="Search exercises..." />
-        <div id="exerciseList" class="stack top-gap"></div>
-      </div>
+    <section id="timer" class="panel"><div class="card"><h2>Timer</h2><div class="mode-switch"><button class="active" data-timer-mode="stopwatch" type="button">Stopwatch</button><button data-timer-mode="countdown" type="button">Rest timer</button></div><div id="timerDisplay" class="timer-display">00:00.0</div><p id="timerStatus" class="timer-status">Ready</p><div class="timer-controls"><button id="timerStartBtn" class="primary" type="button">Start</button><button id="timerResetBtn" class="secondary" type="button">Reset</button></div><div id="timerPresetWrap" class="timer-presets hidden"><button class="secondary" data-seconds="30" type="button">30 sec</button><button class="secondary" data-seconds="60" type="button">60 sec</button><button class="secondary" data-seconds="90" type="button">90 sec</button><button class="secondary" data-seconds="120" type="button">2 min</button></div></div></section>
 
-      <div class="card">
-        <h3 id="exerciseFormTitle">Add exercise</h3>
-        <input id="editingExerciseId" type="hidden" />
-        <div class="grid two">
-          <label>Name<input id="exName" placeholder="e.g. Single-arm row" /></label>
-          <label>Category<select id="exCategory"><option>Push</option><option>Pull</option><option>Legs</option><option>Core</option><option>Cardio</option><option>Mobility</option></select></label>
-          <label>Tracking mode<select id="exMode"><option value="standard">Both sides together</option><option value="leftRight">Left and right separately</option><option value="sideOptional">Side optional</option></select></label>
-          <label>Input type<select id="exInputType"><option value="repsWeight">Reps + weight</option><option value="time">Time</option><option value="repsOnly">Reps only</option></select></label>
-          <label>Equipment<input id="exEquipment" placeholder="Dumbbell, cable, machine..." /></label>
-          <label>Default reps<input id="exDefaultReps" inputmode="numeric" value="10" /></label>
-          <label>Default weight<input id="exDefaultWeight" inputmode="decimal" value="0" /></label>
-          <label>Weight step<input id="exWeightStep" inputmode="decimal" value="2.5" /></label>
-          <label>Default rest (seconds)<input id="exRestSeconds" inputmode="numeric" value="60" /></label>
-        </div>
-        <label>Demo video/GIF URL<input id="exDemo" placeholder="https://..." /></label>
-        <label>Notes<textarea id="exNotes" rows="3" placeholder="Setup cues, seat height, form reminders..."></textarea></label>
-        <div class="row gap">
-          <button id="saveExerciseBtn" class="primary" type="button">Save exercise</button>
-          <button id="cancelExerciseEditBtn" class="ghost hidden" type="button">Cancel edit</button>
-        </div>
-      </div>
-    </section>
+    <section id="library" class="panel"><div class="card"><div class="row between"><div><h2>Exercises</h2><p class="muted compact">Your dropdown is populated from Firestore.</p></div></div><input id="exerciseSearch" placeholder="Search exercises..." /><div id="exerciseList" class="tile-list top-gap"></div></div><div class="card"><h3 id="exerciseFormTitle">Add exercise</h3><input id="editingExerciseId" type="hidden" /><div class="grid two"><label>Name<input id="exName" /></label><label>Category<select id="exCategory"><option>Push</option><option>Pull</option><option>Legs</option><option>Core</option><option>Cardio</option><option>Mobility</option></select></label><label>Tracking mode<select id="exMode"><option value="standard">Both sides together</option><option value="leftRight">Left and right separately</option><option value="sideOptional">Side optional</option></select></label><label>Input type<select id="exInputType"><option value="repsWeight">Reps + weight</option><option value="time">Time</option><option value="repsOnly">Reps only</option></select></label><label>Equipment<input id="exEquipment" /></label><label>Default reps<input id="exDefaultReps" value="10" /></label><label>Default weight<input id="exDefaultWeight" value="0" /></label><label>Weight step<input id="exWeightStep" value="2.5" /></label><label>Default rest<input id="exRestSeconds" value="60" /></label></div><label>Demo video/GIF URL<input id="exDemo" /></label><label>Notes<textarea id="exNotes" rows="3"></textarea></label><div class="row gap"><button id="saveExerciseBtn" class="primary" type="button">Save exercise</button><button id="cancelExerciseEditBtn" class="ghost hidden" type="button">Cancel edit</button></div></div></section>
 
-    <section id="settings" class="panel">
-      <div class="card">
-        <h2>Settings</h2>
-        <label>Default weight unit<select id="unitSetting"><option value="kg">kg</option><option value="lb">lb</option></select></label>
-        <label>Default weight label<select id="weightModeSetting"><option value="total">Total weight</option><option value="each">Each dumbbell / side</option><option value="bodyweight">Bodyweight</option></select></label>
-        <label>Measurement unit<select id="measureUnitSetting"><option value="cm">cm</option><option value="in">inches</option></select></label>
-        <label>Default rest timer<select id="defaultRestSetting"><option value="30">30 sec</option><option value="60">60 sec</option><option value="90">90 sec</option><option value="120">2 min</option></select></label>
-        <button id="saveSettingsBtn" class="primary" type="button">Save settings</button>
-      </div>
-      <div class="card future">
-        <h3>Food tracking — future</h3>
-        <p>Planned: upload a meal photo, estimate calories/macros, edit the result and save it.</p>
-        <button disabled>Coming later</button>
-      </div>
-      <div class="card">
-        <h3>Backup</h3>
-        <button id="exportBtn" class="secondary" type="button">Export JSON backup</button>
-      </div>
-    </section>
+    <section id="settings" class="panel"><div class="card"><h2>Settings</h2><label>Default weight unit<select id="unitSetting"><option value="kg">kg</option><option value="lb">lb</option></select></label><label>Default weight label<select id="weightModeSetting"><option value="total">Total weight</option><option value="each">Each dumbbell / side</option><option value="bodyweight">Bodyweight</option></select></label><label>Measurement unit<select id="measureUnitSetting"><option value="cm">cm</option><option value="in">inches</option></select></label><label>Default rest timer<select id="defaultRestSetting"><option value="30">30 sec</option><option value="60">60 sec</option><option value="90">90 sec</option><option value="120">2 min</option></select></label><button id="saveSettingsBtn" class="primary" type="button">Save settings</button></div><div class="card"><h3>Backup</h3><button id="exportBtn" class="secondary" type="button">Export JSON backup</button></div></section>
   </section>
 </main>
 
@@ -267,6 +118,8 @@
     <button id="confirmOkBtn" class="primary" type="button">OK</button>
   </div>
 </dialog>
+
+<dialog id="historyDialog" class="detail-dialog"><div class="row between"><h3 id="historyDialogTitle">Workout</h3><button id="historyDialogClose" class="ghost small" type="button">Close</button></div><div id="historyDialogBody"></div></dialog>
 
 <dialog id="toastDialog">
   <p id="toastText"></p>
