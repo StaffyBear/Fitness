@@ -1,20 +1,24 @@
-# Frever Fitness v4
+# Frever Fitness v4.1
 
-GitHub Pages frontend with Firebase Authentication and Firestore.
+A GitHub Pages web app using Firebase Authentication and Firestore.
 
-## v4 changes
+## Updating
 
-- Compact two-column dashboard on phones.
-- Exercises and Settings moved behind **More**.
-- Manual workouts are now logged by round rather than through a separate Sets form.
-- Exercise 1 and Exercise 2 each have large reps/seconds and weight controls.
-- The second exercise can be removed for a single-exercise round.
-- **Save round** records both exercises together and carries the current values into the next round.
-- Completed rounds are shown in a compact list.
-- **Finish & save workout** stores all completed rounds in Firestore and keeps Workout History/PBs compatible.
+1. Extract this ZIP.
+2. Replace the existing `index.html`, `styles.css`, `app.js`, `firestore.rules` and `README.md` files in the root of the Fitness GitHub repository.
+3. Commit and push to `main`.
+4. GitHub Pages will redeploy automatically.
 
-## Update GitHub
+Existing Firebase accounts and saved data remain unchanged.
 
-Replace `index.html`, `styles.css`, `app.js`, `README.md`, and `firestore.rules` in the existing repository, commit, and push to `main`.
+## v4.1 changes
 
-No Firebase project, account, or database migration is required.
+- Automatic rest timer is now optional and defaults to off.
+- Added an on/off setting for automatic rest after saving a round.
+- Fixed missing weight controls for older Firestore exercise records that did not include an `inputType` field.
+- Removed **Start a routine** from the Workout page. Routines are started from the Routines page.
+- Added a separate date field when adding measurements, allowing past measurement data to be entered.
+
+## Firestore rules
+
+No rule changes are required from v4.

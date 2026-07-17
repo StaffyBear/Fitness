@@ -47,7 +47,7 @@ let routines = [];
 let bodyEntries = [];
 let mealPlans = [];
 let mealWeekStart = startOfWeek(new Date());
-let settings = { unit: "kg", weightMode: "total", measureUnit: "cm", defaultRest: 60 };
+let settings = { unit: "kg", weightMode: "total", measureUnit: "cm", defaultRest: 60, autoRest: false };
 let manualSets = [];
 let manualRounds = [];
 let secondExerciseEnabled = true;
@@ -92,6 +92,15 @@ function selectedExercise() {
 }
 function exerciseById(id) {
   return exercises.find((exercise) => exercise.id === id) || null;
+}
+function exerciseInputType(exercise) {
+  if (!exercise) return "repsWeight";
+  if (exercise.inputType) return exercise.inputType;
+  // Older exercise documents did not always store inputType. Treat them as weighted by default.
+  const name = String(exercise.name || "").toLowerCase();
+  if (["dead hang", "wall sit", "plank"].some((term) => name.includes(term))) return "time";
+  if (["dead bug", "deadbug"].some((term) => name.includes(term))) return "repsOnly";
+  return "repsWeight";
 }
 function formatDate(date) {
   if (!date) return "Unknown date";
@@ -193,9 +202,9 @@ function syncPairDefaults(pair, preserveValues = false) {
     $(`reps${pair}Value`).value = exercise.defaultReps ?? 10;
     $(`weight${pair}Value`).value = exercise.defaultWeight ?? 0;
   }
-  $(`weight${pair}Wrap`)?.classList.toggle("hidden", exercise.inputType !== "repsWeight");
+  $(`weight${pair}Wrap`)?.classList.toggle("hidden", exerciseInputType(exercise) !== "repsWeight");
   const repsLabel = $(`reps${pair}Value`)?.closest(".mini-stepper")?.querySelector("span");
-  if (repsLabel) repsLabel.textContent = exercise.inputType === "time" ? "SECONDS" : "REPS";
+  if (repsLabel) repsLabel.textContent = exerciseInputType(exercise) === "time" ? "SECONDS" : "REPS";
   if ($(`weight${pair}Unit`)) $(`weight${pair}Unit`).textContent = settings.unit;
 }
 
@@ -231,9 +240,9 @@ function pairSet(pair) {
   return {
     exerciseId: exercise.id,
     exerciseName: exercise.name,
-    inputType: exercise.inputType,
+    inputType: exerciseInputType(exercise),
     reps: number($(`reps${pair}Value`).value),
-    weight: exercise.inputType === "repsWeight" ? number($(`weight${pair}Value`).value) : 0,
+    weight: exerciseInputType(exercise) === "repsWeight" ? number($(`weight${pair}Value`).value) : 0,
     side: "both",
     notes: $("roundNotes").value.trim(),
     completedAt: new Date().toISOString()
@@ -262,8 +271,10 @@ function savePairRound() {
   $("roundHeading").textContent = `Round ${manualRounds.length + 1}`;
   $("roundNotes").value = "";
   renderCompletedRounds();
-  const rest = Math.max(...entries.map((entry) => exerciseById(entry.exerciseId)?.restSeconds || settings.defaultRest));
-  startAutomaticRest(rest);
+  if (settings.autoRest) {
+    const rest = Math.max(...entries.map((entry) => exerciseById(entry.exerciseId)?.restSeconds || settings.defaultRest));
+    startAutomaticRest(rest);
+  }
 }
 
 function renderCompletedSets() { renderCompletedRounds(); }
@@ -624,7 +635,7 @@ function renderRoutineSession() {
     <label>Swap for today only<select id="routineSwapExercise">${exercises.map((entry) => `<option value="${escapeHtml(entry.id)}" ${entry.id === exercise.id ? "selected" : ""}>${escapeHtml(entry.name)}</option>`).join("")}</select></label>
     <div id="routineSideWrap" class="segmented ${exercise.mode === "standard" ? "hidden" : ""}"><button data-routine-side="left" class="active" type="button">Left</button><button data-routine-side="right" type="button">Right</button><button data-routine-side="both" type="button">Both</button></div>
     <div class="stepper-block"><div class="stepper-label">${exercise.inputType === "time" ? "Seconds" : "Reps"}</div><div class="stepper"><button data-routine-adjust="reps" data-delta="-1" type="button">−</button><input id="routineRepsValue" inputmode="numeric" value="${number(step.defaultReps, exercise.defaultReps || 10)}" /><button data-routine-adjust="reps" data-delta="1" type="button">+</button></div></div>
-    <div class="stepper-block ${exercise.inputType !== "repsWeight" ? "hidden" : ""}"><div class="stepper-label">Weight (${escapeHtml(settings.unit)})</div><div class="stepper"><button data-routine-adjust="weight" data-delta="-1" type="button">−</button><input id="routineWeightValue" inputmode="decimal" value="${number(step.defaultWeight, exercise.defaultWeight || 0)}" /><button data-routine-adjust="weight" data-delta="1" type="button">+</button></div></div>
+    <div class="stepper-block ${exerciseInputType(exercise) !== "repsWeight" ? "hidden" : ""}"><div class="stepper-label">Weight (${escapeHtml(settings.unit)})</div><div class="stepper"><button data-routine-adjust="weight" data-delta="-1" type="button">−</button><input id="routineWeightValue" inputmode="decimal" value="${number(step.defaultWeight, exercise.defaultWeight || 0)}" /><button data-routine-adjust="weight" data-delta="1" type="button">+</button></div></div>
     <label>Notes<textarea id="routineSetNotes" rows="2" placeholder="Optional note for this set"></textarea></label>
     <div class="session-actions"><button id="completeRoutineSetBtn" class="primary" type="button">Complete set</button><button id="skipRoutineStepBtn" class="secondary" type="button">Skip today</button></div>
     <div class="top-gap"><strong>Completed: ${activeRoutineSession.completed.length}</strong> · <span class="muted">Skipped: ${activeRoutineSession.skipped.length}</span></div>`;
@@ -728,7 +739,7 @@ function startAutomaticRest(seconds) {
 }
 
 async function saveBody(type) {
-  const date = $("bodyDate").value || today();
+  const date = type === "weight" ? ($("bodyDate").value || today()) : ($("measureDate").value || today());
   let payload;
   if (type === "weight") {
     const weight = number($("bodyWeight").value, NaN);
@@ -776,6 +787,7 @@ function applySettingsToUI() {
   $("unitSetting").value = settings.unit;
   $("weightModeSetting").value = settings.weightMode;
   $("measureUnitSetting").value = settings.measureUnit;
+  $("autoRestSetting").checked = Boolean(settings.autoRest);
   $("defaultRestSetting").value = String(settings.defaultRest);
   $("weightUnitLabel").textContent = settings.unit;
   $("weightUnitText").textContent = settings.unit;
@@ -786,6 +798,7 @@ async function saveSettings() {
     unit: $("unitSetting").value,
     weightMode: $("weightModeSetting").value,
     measureUnit: $("measureUnitSetting").value,
+    autoRest: $("autoRestSetting").checked,
     defaultRest: number($("defaultRestSetting").value, 60)
   };
   await setDoc(doc(db, "users", currentUser.uid, "profile", "settings"), settings, { merge: true });
@@ -945,7 +958,6 @@ $("clearPairWorkoutBtn").onclick = () => resetManualEntry(true);
 $("toggleRoundNotesBtn").onclick = () => $("roundNotesWrap").classList.toggle("hidden");
 $("removeExercise2Btn").onclick = () => { secondExerciseEnabled = false; $("removeExercise2Btn").closest(".exercise-round-card").classList.add("hidden"); $("addExercise2Btn").classList.remove("hidden"); };
 $("addExercise2Btn").onclick = () => { secondExerciseEnabled = true; $("exercise2Controls").closest(".exercise-round-card").classList.remove("hidden"); $("addExercise2Btn").classList.add("hidden"); };
-$("startFromRoutineBtn").onclick = () => switchTab("routines");
 $("saveWeightBtn").onclick = () => saveBody("weight");
 $("saveMeasurementsBtn").onclick = () => saveBody("measurements");
 $("saveExerciseBtn").onclick = saveExercise;
@@ -1063,7 +1075,7 @@ $("routineSessionCard").onchange = (event) => {
   $("routineRepsValue").value = exercise.defaultReps || 10;
   if ($("routineWeightValue")) $("routineWeightValue").value = exercise.defaultWeight || 0;
   const weightBlock = $("routineWeightValue")?.closest(".stepper-block");
-  weightBlock?.classList.toggle("hidden", exercise.inputType !== "repsWeight");
+  weightBlock?.classList.toggle("hidden", exerciseInputType(exercise) !== "repsWeight");
   $("routineSideWrap")?.classList.toggle("hidden", exercise.mode === "standard");
   activeRoutineSession.currentSide = exercise.mode === "standard" ? "both" : "left";
 };
@@ -1079,6 +1091,7 @@ $("nextMealWeekBtn")?.addEventListener("click",()=>{mealWeekStart=addDays(mealWe
 $("saveMealWeekBtn")?.addEventListener("click",saveMealWeek);
 
 $("bodyDate").value = today();
+$("measureDate").value = today();
 $("routineStartDate").value = today();
 renderTimer();
 
