@@ -1,41 +1,50 @@
-# Frever Fitness — Firebase + GitHub Pages
+# Frever Fitness v2
 
-This app uses:
+A static GitHub Pages app using Firebase Authentication and Cloud Firestore.
 
-- GitHub Pages for hosting
-- Firebase Authentication for email/password accounts
-- Cloud Firestore for private user data
+## What is new in v2
 
-## Upload to GitHub
+- Exercises are stored in Firestore under each user account.
+- Large plus/minus controls for reps, seconds and weight.
+- Complete one set at a time and automatically start a rest timer.
+- Personal best detection.
+- Routine templates.
+- Routine groups can contain one exercise, a superset, or three or more exercises.
+- Each group can repeat for a chosen number of rounds.
+- During a routine you can swap or skip an exercise for that workout only.
+- Editing the routine changes future sessions without altering workout history.
+- Starter Monday, Tuesday and Thursday exercises are seeded into Firestore on first login.
 
-1. Create a new public repository called `frever-fitness`.
-2. Extract this ZIP.
-3. Upload `index.html`, `styles.css`, `app.js`, and `README.md` to the repository root.
-4. Open the repository's **Settings → Pages**.
-5. Select **Deploy from a branch**.
-6. Choose `main` and `/ (root)`, then save.
+## GitHub Pages installation
 
-## Important Firebase step: authorised domain
+1. Extract the ZIP.
+2. Copy all files into the root of your existing Fitness GitHub repository.
+3. Commit the changes and push them to the `main` branch.
+4. GitHub Pages will redeploy automatically.
 
-After GitHub Pages gives you the website address:
-
-1. Open Firebase Console.
-2. Open **Authentication**.
-3. Open **Settings**.
-4. Find **Authorised domains**.
-5. Add your GitHub Pages hostname, for example `libbyyakas.github.io`.
-6. Later, also add your custom hostname, for example `fitness.libbyyakas.com`.
-
-Do not include `https://` or a path when adding a domain.
-
-## Firestore rules
-
-The current database is locked. The app needs authenticated users to access only their own data.
-
-In the classic Firebase console, open **Firestore Database → Rules** and publish:
+The repository root should contain:
 
 ```text
+index.html
+styles.css
+app.js
+firestore.rules
+README.md
+```
+
+## Firestore security rules
+
+This app stores everything below:
+
+```text
+users/{firebase-user-id}/...
+```
+
+In Firebase, open **Firestore → Rules** and deploy the contents of `firestore.rules`:
+
+```javascript
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
     match /users/{userId}/{document=**} {
@@ -46,18 +55,44 @@ service cloud.firestore {
 }
 ```
 
-If the new console does not provide an editable rules screen, switch to the classic Firebase console from the console menu/banner. The app will not be able to save anything while the existing rule remains `allow read, write: if false;`.
+These rules require login and prevent one user from reading another user’s records.
 
-## Included features
+## Firestore structure
 
-- Register/login/logout
-- Exercise dropdown and custom exercises
-- Standard and left/right set tracking
-- Reps, sets and weight
-- Automatic PB list
-- Workout history
-- Body weight and measurements
-- Stopwatch and rest countdown presets
-- Sound/vibration at the end of a rest timer
-- Per-user settings
-- JSON backup export
+Firestore is NoSQL, so it uses collections/documents rather than SQL tables:
+
+```text
+users
+  userId
+    exercises
+      exerciseId
+    routines
+      routineId
+    workouts
+      workoutId
+    bodyEntries
+      bodyEntryId
+    profile
+      settings
+```
+
+The starter exercises are written into the `exercises` collection the first time a new user logs in. After that, the app reads the exercise dropdown from Firestore.
+
+## Routine behaviour
+
+A group with Leg Press and Underhand Lat Pulldown set to 3 rounds runs as:
+
+```text
+Leg Press — round 1
+Underhand Lat Pulldown — round 1
+Leg Press — round 2
+Underhand Lat Pulldown — round 2
+Leg Press — round 3
+Underhand Lat Pulldown — round 3
+```
+
+During a workout:
+
+- **Swap for today only** changes the exercise only in the active session.
+- **Skip today** moves to the next exercise without modifying the routine.
+- Editing a routine affects future workouts only.
