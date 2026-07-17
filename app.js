@@ -203,9 +203,6 @@ function renderExerciseSelects() {
   renderManualRound();
 }
 
-function selectedExercise() {
-  return exercises.find((exercise) => exercise.id === $("exerciseSelect")?.value) || exercises[0] || null;
-}
 function updateExerciseInfo() {}
 function renderSideButtons() {}
 function renderCompletedSets() { renderCompletedRounds(); }

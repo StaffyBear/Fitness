@@ -16,7 +16,7 @@ Static GitHub Pages app using Firebase Authentication and Firestore.
 Upload all files to the root of the existing GitHub repository and commit to main.
 
 
-## v5.1 login stability fix
+## v5.2 login stability fix
 - Adds cache-busting for GitHub Pages updates.
 - Strengthens login/register button handling and error messages.
 - Supports pressing Enter in the password field.
