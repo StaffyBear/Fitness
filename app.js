@@ -49,6 +49,8 @@ let mealPlans = [];
 let mealWeekStart = startOfWeek(new Date());
 let settings = { unit: "kg", weightMode: "total", measureUnit: "cm", defaultRest: 60 };
 let manualSets = [];
+let manualRounds = [];
+let secondExerciseEnabled = true;
 let manualSide = "both";
 let editingRoutineId = null;
 let routineDraftBlocks = [];
@@ -165,62 +167,75 @@ function renderEverything() {
 }
 
 function renderExerciseSelects() {
-  const current = $("exerciseSelect").value;
-  $("exerciseSelect").innerHTML = exercises.map((exercise) => `<option value="${escapeHtml(exercise.id)}">${escapeHtml(exercise.name)}</option>`).join("");
-  if (exercises.some((exercise) => exercise.id === current)) $("exerciseSelect").value = current;
-  updateExerciseInfo();
+  const optionHtml = exercises.map((exercise) => `<option value="${escapeHtml(exercise.id)}">${escapeHtml(exercise.name)}</option>`).join("");
+  ["exerciseSelect", "exercise1Select", "exercise2Select"].forEach((id) => {
+    const element = $(id);
+    if (!element) return;
+    const current = element.value;
+    element.innerHTML = optionHtml;
+    if (exercises.some((exercise) => exercise.id === current)) element.value = current;
+  });
+  if ($("exercise2Select") && exercises.length > 1 && $("exercise2Select").value === $("exercise1Select")?.value) $("exercise2Select").selectedIndex = 1;
+  syncPairDefaults(1);
+  syncPairDefaults(2);
 }
 
-function updateExerciseInfo() {
-  const exercise = selectedExercise();
-  if (!exercise) {
-    $("exerciseInfo").textContent = "Add an exercise to get started.";
-    return;
+function pairExercise(pair) {
+  return exercises.find((exercise) => exercise.id === $(`exercise${pair}Select`)?.value) || null;
+}
+
+function updateExerciseInfo() { syncPairDefaults(1); }
+
+function syncPairDefaults(pair, preserveValues = false) {
+  const exercise = pairExercise(pair);
+  if (!exercise) return;
+  if (!preserveValues) {
+    $(`reps${pair}Value`).value = exercise.defaultReps ?? 10;
+    $(`weight${pair}Value`).value = exercise.defaultWeight ?? 0;
   }
-  const tracking = exercise.mode === "leftRight" ? "Left and right tracked separately" : exercise.mode === "sideOptional" ? "Side can be selected" : "Both sides tracked together";
-  const input = exercise.inputType === "time" ? "Timed exercise" : exercise.inputType === "repsOnly" ? "Reps only" : "Reps and weight";
-  $("exerciseInfo").textContent = "";
-  $("demoBtn").disabled = !exercise.demo;
-  $("sideWrap").classList.toggle("hidden", exercise.mode === "standard");
-  document.querySelector(".weight-row")?.classList.toggle("hidden", exercise.inputType === "time");
-  $("repsValue").value = exercise.defaultReps ?? 10;
-  $("weightValue").value = exercise.defaultWeight ?? 0;
-  $("weightStepText").textContent = exercise.weightStep ?? 2.5;
-  $("setHeading").textContent = `Set ${manualSets.length + 1}`;
-  manualSide = exercise.mode === "standard" ? "both" : "left";
-  renderSideButtons();
+  $(`weight${pair}Wrap`)?.classList.toggle("hidden", exercise.inputType !== "repsWeight");
+  const repsLabel = $(`reps${pair}Value`)?.closest(".mini-stepper")?.querySelector("span");
+  if (repsLabel) repsLabel.textContent = exercise.inputType === "time" ? "SECONDS" : "REPS";
+  if ($(`weight${pair}Unit`)) $(`weight${pair}Unit`).textContent = settings.unit;
 }
 
 function resetManualEntry(keepExercise = false) {
   manualSets = [];
-  $("setNotes").value = "";
-  renderCompletedSets();
-  if (!keepExercise && exercises[0]) $("exerciseSelect").value = exercises[0].id;
-  updateExerciseInfo();
+  manualRounds = [];
+  secondExerciseEnabled = true;
+  $("roundNotes").value = "";
+  $("roundNotesWrap").classList.add("hidden");
+  $("exercise2Controls").closest(".exercise-round-card").classList.remove("hidden");
+  $("addExercise2Btn").classList.add("hidden");
+  renderCompletedRounds();
+  $("roundHeading").textContent = "Round 1";
+  if (!keepExercise && exercises[0]) $("exercise1Select").value = exercises[0].id;
+  syncPairDefaults(1);
+  syncPairDefaults(2);
 }
 
-function renderSideButtons() {
-  document.querySelectorAll("[data-side]").forEach((button) => button.classList.toggle("active", button.dataset.side === manualSide));
-}
+function renderSideButtons() {}
 
-function adjustValue(kind, delta) {
-  const exercise = selectedExercise();
+function adjustPairValue(pair, kind, delta) {
+  const exercise = pairExercise(pair);
   if (!exercise) return;
-  const input = kind === "reps" ? $("repsValue") : $("weightValue");
+  const input = kind === "reps" ? $(`reps${pair}Value`) : $(`weight${pair}Value`);
   const step = kind === "reps" ? 1 : number(exercise.weightStep, 2.5);
-  const next = Math.max(0, number(input.value) + (delta * step));
+  const next = Math.max(0, number(input.value) + delta * step);
   input.value = kind === "reps" ? Math.round(next) : Number(next.toFixed(2));
 }
 
-function currentSetFromInputs() {
-  const exercise = selectedExercise();
+function pairSet(pair) {
+  const exercise = pairExercise(pair);
+  if (!exercise) return null;
   return {
-    setNumber: manualSets.length + 1,
-    side: exercise?.mode === "standard" ? "both" : manualSide,
-    reps: number($("repsValue").value),
-    weight: exercise?.inputType === "time" ? 0 : number($("weightValue").value),
-    inputType: exercise?.inputType === "time" ? "time" : "repsWeight",
-    notes: $("setNotes").value.trim(),
+    exerciseId: exercise.id,
+    exerciseName: exercise.name,
+    inputType: exercise.inputType,
+    reps: number($(`reps${pair}Value`).value),
+    weight: exercise.inputType === "repsWeight" ? number($(`weight${pair}Value`).value) : 0,
+    side: "both",
+    notes: $("roundNotes").value.trim(),
     completedAt: new Date().toISOString()
   };
 }
@@ -228,63 +243,63 @@ function currentSetFromInputs() {
 function calculatePBForSet(exerciseId, set) {
   const previous = workouts.flatMap((workout) => workout.exercises || [])
     .filter((entry) => entry.exerciseId === exerciseId)
-    .flatMap((entry) => entry.sets || [])
-    .filter((oldSet) => (oldSet.side || "both") === (set.side || "both"));
+    .flatMap((entry) => entry.sets || []);
   if (!previous.length) return true;
-  if (set.inputType === "time" || set.inputType === "repsOnly") {
-    return set.reps > Math.max(...previous.map((entry) => number(entry.reps)));
-  }
+  if (set.inputType === "time" || set.inputType === "repsOnly") return set.reps > Math.max(...previous.map((entry) => number(entry.reps)));
   const bestWeight = Math.max(...previous.map((entry) => number(entry.weight)));
   const bestRepsAtWeight = Math.max(0, ...previous.filter((entry) => number(entry.weight) === set.weight).map((entry) => number(entry.reps)));
   return set.weight > bestWeight || (set.weight === bestWeight && set.reps > bestRepsAtWeight);
 }
 
-function completeManualSet() {
-  const exercise = selectedExercise();
-  if (!exercise) return;
-  const set = currentSetFromInputs();
-  if (set.reps <= 0) return showToast(exercise.inputType === "time" ? "Enter the number of seconds." : "Enter at least one rep.");
-  set.isPB = calculatePBForSet(exercise.id, set);
-  manualSets.push(set);
-  renderCompletedSets();
-  $("setHeading").textContent = `Set ${manualSets.length + 1}`;
-  $("pbHint").classList.toggle("hidden", !set.isPB);
-  if (set.isPB) setTimeout(() => $("pbHint").classList.add("hidden"), 2200);
-  $("setNotes").value = "";
-  startAutomaticRest(exercise.restSeconds || settings.defaultRest);
+function completeManualSet() { savePairRound(); }
+
+function savePairRound() {
+  const entries = [pairSet(1)];
+  if (secondExerciseEnabled) entries.push(pairSet(2));
+  if (entries.some((entry) => !entry || entry.reps <= 0)) return showToast("Enter at least one rep or second for each exercise.");
+  entries.forEach((entry) => { entry.isPB = calculatePBForSet(entry.exerciseId, entry); });
+  manualRounds.push({ roundNumber: manualRounds.length + 1, entries });
+  $("roundHeading").textContent = `Round ${manualRounds.length + 1}`;
+  $("roundNotes").value = "";
+  renderCompletedRounds();
+  const rest = Math.max(...entries.map((entry) => exerciseById(entry.exerciseId)?.restSeconds || settings.defaultRest));
+  startAutomaticRest(rest);
 }
 
-function renderCompletedSets() {
-  const exercise = selectedExercise();
-  if (!manualSets.length) {
-    $("completedSets").innerHTML = `<p class="muted">No sets completed yet.</p>`;
+function renderCompletedSets() { renderCompletedRounds(); }
+
+function renderCompletedRounds() {
+  if (!manualRounds.length) {
+    $("completedRounds").innerHTML = `<p class="muted">No rounds completed yet.</p>`;
     return;
   }
-  $("completedSets").innerHTML = manualSets.map((set, index) => {
-    const value = set.inputType === "time" ? `${set.reps} sec` : set.inputType === "repsOnly" ? `${set.reps} reps` : `${set.reps} reps × ${set.weight} ${settings.unit}`;
-    const side = set.side && set.side !== "both" ? ` · ${set.side}` : "";
-    return `<div class="complete-item"><div><strong>✓ Set ${index + 1}</strong><div class="item-meta">${escapeHtml(value)}${escapeHtml(side)} ${set.isPB ? "· PB" : ""}</div></div><button class="danger small" data-remove-manual-set="${index}" type="button">Remove</button></div>`;
-  }).join("");
+  $("completedRounds").innerHTML = manualRounds.map((round, index) => `<div class="complete-round"><div class="round-label">Round ${index + 1}</div>${round.entries.map((entry) => {
+    const value = entry.inputType === "time" ? `${entry.reps} sec` : entry.inputType === "repsOnly" ? `${entry.reps} reps` : `${entry.reps} reps @ ${entry.weight} ${settings.unit}`;
+    return `<div class="complete-line"><span>${escapeHtml(entry.exerciseName)}</span><strong>${escapeHtml(value)}${entry.isPB ? " · PB" : ""}</strong></div>`;
+  }).join("")}<button class="danger small" data-remove-round="${index}" type="button">Remove</button></div>`).join("");
 }
 
-async function saveManualWorkout() {
-  const exercise = selectedExercise();
-  if (!exercise) return;
-  if (!manualSets.length) return showToast("Complete at least one set first.");
+async function saveManualWorkout() { return savePairWorkout(); }
+
+async function savePairWorkout() {
+  if (!manualRounds.length) return showToast("Save at least one round first.");
+  const grouped = new Map();
+  manualRounds.forEach((round) => round.entries.forEach((entry) => {
+    if (!grouped.has(entry.exerciseId)) grouped.set(entry.exerciseId, { exerciseId: entry.exerciseId, exerciseName: entry.exerciseName, sets: [] });
+    grouped.get(entry.exerciseId).sets.push({
+      setNumber: grouped.get(entry.exerciseId).sets.length + 1,
+      reps: entry.reps, weight: entry.weight, inputType: entry.inputType, side: entry.side,
+      notes: entry.notes, completedAt: entry.completedAt, isPB: entry.isPB
+    });
+  }));
   const workout = {
-    date: $("workoutDate").value || today(),
-    source: "manual",
-    routineId: null,
-    routineName: null,
-    exercises: [{ exerciseId: exercise.id, exerciseName: exercise.name, sets: manualSets }],
-    createdAt: serverTimestamp()
+    date: $("workoutDate").value || today(), source: "manual", routineId: null, routineName: null,
+    exercises: [...grouped.values()], createdAt: serverTimestamp()
   };
   const ref = await addDoc(userCollection("workouts"), workout);
   workouts.unshift({ id: ref.id, ...workout, createdAt: { seconds: Math.floor(Date.now() / 1000) } });
   resetManualEntry(true);
-  renderRecentWorkouts();
-  renderPBs();
-  renderHistory();
+  renderPBs(); renderHistory(); renderExerciseLibrary();
   showToast("Workout saved.");
 }
 
@@ -917,14 +932,19 @@ $("confirmCancelBtn").onclick = () => { $("confirmDialog").close(); confirmResol
 $("confirmOkBtn").onclick = () => { $("confirmDialog").close(); confirmResolver?.(true); confirmResolver = null; };
 
 document.querySelectorAll("[data-tab]").forEach((tab) => tab.onclick = () => switchTab(tab.dataset.tab));
-$("exerciseSelect").onchange = () => { manualSets = []; renderCompletedSets(); updateExerciseInfo(); };
+$("moreTileBtn").onclick = () => $("moreTiles").classList.toggle("hidden");
+$("exercise1Select").onchange = () => syncPairDefaults(1);
+$("exercise2Select").onchange = () => syncPairDefaults(2);
 $("quickAddExerciseBtn").onclick = () => { switchTab("library"); clearExerciseForm(); };
 $("demoBtn").onclick = () => { const exercise = selectedExercise(); if (exercise?.demo) window.open(exercise.demo, "_blank", "noopener"); };
-document.querySelectorAll("[data-adjust]").forEach((button) => button.onclick = () => adjustValue(button.dataset.adjust, number(button.dataset.delta)));
+document.querySelectorAll("[data-pair-adjust]").forEach((button) => button.onclick = () => adjustPairValue(number(button.dataset.pairAdjust), button.dataset.kind, number(button.dataset.delta)));
 document.querySelectorAll("[data-side]").forEach((button) => button.onclick = () => { manualSide = button.dataset.side; renderSideButtons(); });
-$("completeSetBtn").onclick = completeManualSet;
-$("saveManualWorkoutBtn").onclick = saveManualWorkout;
-$("clearManualWorkoutBtn").onclick = () => resetManualEntry(true);
+$("saveRoundBtn").onclick = savePairRound;
+$("finishPairWorkoutBtn").onclick = savePairWorkout;
+$("clearPairWorkoutBtn").onclick = () => resetManualEntry(true);
+$("toggleRoundNotesBtn").onclick = () => $("roundNotesWrap").classList.toggle("hidden");
+$("removeExercise2Btn").onclick = () => { secondExerciseEnabled = false; $("removeExercise2Btn").closest(".exercise-round-card").classList.add("hidden"); $("addExercise2Btn").classList.remove("hidden"); };
+$("addExercise2Btn").onclick = () => { secondExerciseEnabled = true; $("exercise2Controls").closest(".exercise-round-card").classList.remove("hidden"); $("addExercise2Btn").classList.add("hidden"); };
 $("startFromRoutineBtn").onclick = () => switchTab("routines");
 $("saveWeightBtn").onclick = () => saveBody("weight");
 $("saveMeasurementsBtn").onclick = () => saveBody("measurements");
@@ -943,13 +963,13 @@ document.querySelectorAll("[data-timer-mode]").forEach((button) => button.onclic
 document.querySelectorAll("[data-seconds]").forEach((button) => button.onclick = () => { running = false; clearInterval(timerHandle); countdownMs = number(button.dataset.seconds) * 1000; renderTimer(); $("timerStatus").textContent = `${button.dataset.seconds} second rest selected`; });
 
 // Delegated events
-$("completedSets").onclick = (event) => {
-  const button = event.target.closest("[data-remove-manual-set]");
+$("completedRounds").onclick = (event) => {
+  const button = event.target.closest("[data-remove-round]");
   if (!button) return;
-  manualSets.splice(number(button.dataset.removeManualSet), 1);
-  manualSets.forEach((set, index) => { set.setNumber = index + 1; });
-  renderCompletedSets();
-  $("setHeading").textContent = `Set ${manualSets.length + 1}`;
+  manualRounds.splice(number(button.dataset.removeRound), 1);
+  manualRounds.forEach((round, index) => { round.roundNumber = index + 1; });
+  $("roundHeading").textContent = `Round ${manualRounds.length + 1}`;
+  renderCompletedRounds();
 };
 
 $("recentWorkouts")?.addEventListener("click", async (event) => {
