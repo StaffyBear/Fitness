@@ -1040,8 +1040,55 @@ function friendlyAuthError(error) {
 }
 
 // Static events
-$("loginBtn").onclick = async () => { try { await signInWithEmailAndPassword(auth, $("authEmail").value.trim(), $("authPassword").value); } catch (error) { $("authMessage").textContent = friendlyAuthError(error); } };
-$("registerBtn").onclick = async () => { try { await createUserWithEmailAndPassword(auth, $("authEmail").value.trim(), $("authPassword").value); } catch (error) { $("authMessage").textContent = friendlyAuthError(error); } };
+async function handleLogin() {
+  const button = $("loginBtn");
+  const email = $("authEmail").value.trim();
+  const password = $("authPassword").value;
+  $("authMessage").textContent = "";
+  if (!email || !password) {
+    $("authMessage").textContent = "Enter your email address and password.";
+    return;
+  }
+  button.disabled = true;
+  button.textContent = "Signing in…";
+  try {
+    await signInWithEmailAndPassword(auth, email, password);
+  } catch (error) {
+    console.error("Login failed", error);
+    $("authMessage").textContent = friendlyAuthError(error);
+  } finally {
+    button.disabled = false;
+    button.textContent = "Login";
+  }
+}
+
+async function handleRegister() {
+  const button = $("registerBtn");
+  const email = $("authEmail").value.trim();
+  const password = $("authPassword").value;
+  $("authMessage").textContent = "";
+  if (!email || !password) {
+    $("authMessage").textContent = "Enter an email address and password.";
+    return;
+  }
+  button.disabled = true;
+  button.textContent = "Creating…";
+  try {
+    await createUserWithEmailAndPassword(auth, email, password);
+  } catch (error) {
+    console.error("Registration failed", error);
+    $("authMessage").textContent = friendlyAuthError(error);
+  } finally {
+    button.disabled = false;
+    button.textContent = "Create account";
+  }
+}
+
+$("loginBtn").addEventListener("click", handleLogin);
+$("registerBtn").addEventListener("click", handleRegister);
+$("authPassword").addEventListener("keydown", (event) => {
+  if (event.key === "Enter") handleLogin();
+});
 $("logoutBtn").onclick = () => signOut(auth);
 $("toastCloseBtn").onclick = () => $("toastDialog").close();
 $("confirmCancelBtn").onclick = () => { $("confirmDialog").close(); confirmResolver?.(false); confirmResolver = null; };
@@ -1227,6 +1274,6 @@ onAuthStateChanged(auth, async (user) => {
     await loadAll();
   } catch (error) {
     console.error(error);
-    showToast("Firebase is connected, but Firestore blocked access. Add the supplied firestore.rules to your Firebase project.");
+    showToast(`You are logged in, but fitness data could not be loaded: ${error.message || "Firestore access failed."}`);
   }
 });
