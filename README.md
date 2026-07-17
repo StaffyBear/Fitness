@@ -1,4 +1,4 @@
-# Frever Fitness v3
+# Frever Fitness v3.1
 
 A GitHub Pages web app using Firebase Authentication and Firestore.
 
@@ -38,3 +38,9 @@ service cloud.firestore {
   }
 }
 ```
+
+
+## v3.1 hotfix
+- Fixed login/register not completing after the v3 redesign.
+- Removed a stale reference to the deleted Recent Workouts panel.
+- Fixed dashboard and Home tile navigation.

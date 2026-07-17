@@ -289,11 +289,13 @@ async function saveManualWorkout() {
 }
 
 function renderRecentWorkouts() {
+  const container = $("recentWorkouts");
+  if (!container) return;
   if (!workouts.length) {
-    $("recentWorkouts").innerHTML = `<p class="muted">No workouts saved yet.</p>`;
+    container.innerHTML = `<p class="muted">No workouts saved yet.</p>`;
     return;
   }
-  $("recentWorkouts").innerHTML = workouts.slice(0, 12).map((workout) => {
+  container.innerHTML = workouts.slice(0, 12).map((workout) => {
     const names = (workout.exercises || []).map((entry) => entry.exerciseName || exerciseById(entry.exerciseId)?.name || "Exercise");
     const sets = (workout.exercises || []).reduce((total, entry) => total + (entry.sets?.length || 0), 0);
     return `<div class="item"><div class="item-title">${escapeHtml(workout.routineName || names.join(" · ") || "Workout")}</div><div class="item-meta">${formatDate(workout.date)} · ${sets} completed set${sets === 1 ? "" : "s"}</div><div class="item-actions"><button class="danger small" data-delete-workout="${escapeHtml(workout.id)}" type="button">Delete</button></div></div>`;
@@ -914,7 +916,7 @@ $("toastCloseBtn").onclick = () => $("toastDialog").close();
 $("confirmCancelBtn").onclick = () => { $("confirmDialog").close(); confirmResolver?.(false); confirmResolver = null; };
 $("confirmOkBtn").onclick = () => { $("confirmDialog").close(); confirmResolver?.(true); confirmResolver = null; };
 
-document.querySelectorAll(".tab").forEach((tab) => tab.onclick = () => switchTab(tab.dataset.tab));
+document.querySelectorAll("[data-tab]").forEach((tab) => tab.onclick = () => switchTab(tab.dataset.tab));
 $("exerciseSelect").onchange = () => { manualSets = []; renderCompletedSets(); updateExerciseInfo(); };
 $("quickAddExerciseBtn").onclick = () => { switchTab("library"); clearExerciseForm(); };
 $("demoBtn").onclick = () => { const exercise = selectedExercise(); if (exercise?.demo) window.open(exercise.demo, "_blank", "noopener"); };
@@ -950,14 +952,14 @@ $("completedSets").onclick = (event) => {
   $("setHeading").textContent = `Set ${manualSets.length + 1}`;
 };
 
-$("recentWorkouts").onclick = async (event) => {
+$("recentWorkouts")?.addEventListener("click", async (event) => {
   const button = event.target.closest("[data-delete-workout]");
   if (!button) return;
   if (!await askConfirm("Delete workout", "This will permanently remove the workout and may change your PBs.")) return;
   await deleteDoc(userDoc("workouts", button.dataset.deleteWorkout));
   workouts = workouts.filter((workout) => workout.id !== button.dataset.deleteWorkout);
-  renderRecentWorkouts(); renderPBs(); renderExerciseLibrary();
-};
+  renderRecentWorkouts(); renderPBs(); renderExerciseLibrary(); renderHistory();
+});
 
 $("bodyEntries").onclick = async (event) => {
   const button = event.target.closest("[data-delete-body]");
