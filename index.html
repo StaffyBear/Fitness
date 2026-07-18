@@ -1,1 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" rx="70" fill="#713268"/><text x="128" y="166" text-anchor="middle" font-size="145" font-family="Segoe UI Emoji, Apple Color Emoji, Noto Color Emoji">🐼</text></svg>
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId}/{document=**} {
+      allow read, write: if request.auth != null
+        && request.auth.uid == userId;
+    }
+  }
+}
