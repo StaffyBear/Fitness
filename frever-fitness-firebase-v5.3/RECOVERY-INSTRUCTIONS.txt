@@ -1,0 +1,20 @@
+FREVER FITNESS RECOVERY
+
+This restores the last confirmed working single-page build (v5.2).
+
+IMPORTANT:
+1. Delete the v6 folders/files currently in the GitHub repository root.
+2. Upload ONLY the files in this recovery ZIP to the repository root.
+3. Keep the CNAME file if GitHub already has one for fitness.libbyyakas.com.
+4. Commit and push to main.
+5. Wait for GitHub Pages deployment to finish.
+6. Open https://fitness.libbyyakas.com/ and refresh once.
+
+Files restored:
+- index.html
+- styles.css
+- app.js
+- firestore.rules
+- README.md
+
+Your Firebase users and saved Firestore data are not changed.
