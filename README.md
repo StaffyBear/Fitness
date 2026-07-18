@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="theme-color" content="#10243f" />
+  <meta name="theme-color" content="#7b5a91" />
   <title>Frever Fitness</title>
-  <link rel="stylesheet" href="styles.css?v=5.4" />
+  <link rel="stylesheet" href="styles.css?v=5.3" />
 </head>
 <body>
 <header class="app-header">
@@ -95,10 +95,7 @@
 
     <section id="library" class="panel"><div class="library-switch"><button id="showExerciseLibraryBtn" class="active" type="button">Existing exercises</button><button id="showExerciseFormBtn" type="button">Add new exercise</button></div><div id="exerciseLibraryCard" class="card"><div class="row between"><div><h2>Exercise library</h2><p class="muted compact">Search your existing exercises and see when they were last completed.</p></div></div><input id="exerciseSearch" placeholder="Search exercises..." /><div id="exerciseList" class="tile-list top-gap"></div></div><div id="exerciseFormCard" class="card hidden"><h3 id="exerciseFormTitle">Add exercise</h3><input id="editingExerciseId" type="hidden" /><div class="grid two"><label>Name<input id="exName" /></label><label>Category<select id="exCategory"><option>Push</option><option>Pull</option><option>Legs</option><option>Core</option><option>Cardio</option><option>Mobility</option></select></label><label>Tracking mode<select id="exMode"><option value="standard">Both sides together</option><option value="leftRight">Left and right separately</option><option value="sideOptional">Side optional</option></select></label><label>Input type<select id="exInputType"><option value="repsWeight">Reps + weight</option><option value="time">Time</option><option value="repsOnly">Reps only</option></select></label><label>Equipment<input id="exEquipment" /></label><label>Default reps<input id="exDefaultReps" value="10" /></label><label>Default weight<input id="exDefaultWeight" value="0" /></label><label>Weight step<input id="exWeightStep" value="2.5" /></label><label>Default rest<input id="exRestSeconds" value="60" /></label></div><label>Demo video/GIF URL<input id="exDemo" /></label><label>Notes<textarea id="exNotes" rows="3"></textarea></label><div class="row gap"><button id="saveExerciseBtn" class="primary" type="button">Save exercise</button><button id="cancelExerciseEditBtn" class="ghost hidden" type="button">Cancel edit</button></div></div></section>
 
-    <section id="settings" class="panel"><div class="card"><h2>Settings</h2><label>Default weight unit<select id="unitSetting"><option value="kg">kg</option><option value="lb">lb</option></select></label><label>Default weight label<select id="weightModeSetting"><option value="total">Total weight</option><option value="each">Each dumbbell / side</option><option value="bodyweight">Bodyweight</option></select></label><label>Measurement unit<select id="measureUnitSetting"><option value="cm">cm</option><option value="in">inches</option></select></label><label class="toggle-setting"><input id="autoRestSetting" type="checkbox" /> <span>Start rest timer automatically after saving a round</span></label><label>Default reps<input id="defaultRepsSetting" inputmode="numeric" min="1" value="10" /></label><label>Default sets<input id="defaultSetsSetting" inputmode="numeric" min="1" value="3" /></label><label>Height (cm)<input id="heightSetting" inputmode="decimal" placeholder="e.g. 169" /></label><label>Default rest timer<select id="defaultRestSetting"><option value="30">30 sec</option><option value="60">60 sec</option><option value="90">90 sec</option><option value="120">2 min</option></select></label>
-<div class="settings-group"><h3>Bottom navigation favourites</h3><p class="muted compact">Home is always shown. Choose up to four other pages.</p><div id="bottomNavChoices" class="nav-choice-grid"></div></div><button id="saveSettingsBtn" class="primary" type="button">Save settings</button></div><div class="card"><h3>Backup</h3><button id="exportBtn" class="secondary" type="button">Export JSON backup</button></div></section>
-    <nav id="bottomNav" class="bottom-nav" aria-label="Favourite navigation"></nav>
-
+    <section id="settings" class="panel"><div class="card"><h2>Settings</h2><label>Default weight unit<select id="unitSetting"><option value="kg">kg</option><option value="lb">lb</option></select></label><label>Default weight label<select id="weightModeSetting"><option value="total">Total weight</option><option value="each">Each dumbbell / side</option><option value="bodyweight">Bodyweight</option></select></label><label>Measurement unit<select id="measureUnitSetting"><option value="cm">cm</option><option value="in">inches</option></select></label><label class="toggle-setting"><input id="autoRestSetting" type="checkbox" /> <span>Start rest timer automatically after saving a round</span></label><label>Default reps<input id="defaultRepsSetting" inputmode="numeric" min="1" value="10" /></label><label>Default sets<input id="defaultSetsSetting" inputmode="numeric" min="1" value="3" /></label><label>Height (cm)<input id="heightSetting" inputmode="decimal" placeholder="e.g. 169" /></label><label>Default rest timer<select id="defaultRestSetting"><option value="30">30 sec</option><option value="60">60 sec</option><option value="90">90 sec</option><option value="120">2 min</option></select></label><button id="saveSettingsBtn" class="primary" type="button">Save settings</button></div><div class="card"><h3>Backup</h3><button id="exportBtn" class="secondary" type="button">Export JSON backup</button></div></section>
   </section>
 </main>
 
@@ -121,6 +118,6 @@
   <button id="toastCloseBtn" class="primary" type="button">OK</button>
 </dialog>
 
-<script type="module" src="app.js?v=5.4"></script>
+<script type="module" src="app.js?v=5.3"></script>
 </body>
 </html>
