@@ -1,10 +1,4 @@
-rules_version = '2';
-
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /users/{userId}/{document=**} {
-      allow read, write: if request.auth != null
-        && request.auth.uid == userId;
-    }
-  }
-}
+import {$,esc,num,requireAuth,loadCollection,userCollection,userDoc} from './common.js';import {addDoc,setDoc,deleteDoc,serverTimestamp} from './firebase.js';
+let user,routines=[],exercises=[];const name=id=>exercises.find(x=>x.id===id)?.name||id;function render(){$('routineList').innerHTML=routines.map(r=>`<div class="list-item"><div class="row between gap"><div><strong>${esc(r.name)}</strong><div class="muted">${esc(r.day||'')} · ${num(r.sets,3)} sets<br>${(r.exerciseIds||[]).map(name).join(' · ')}</div></div><div class="toolbar"><a class="btn primary small" href="/workout/?routine=${r.id}">Start</a><button class="secondary small" data-edit="${r.id}">Edit</button><button class="danger small" data-delete="${r.id}">Delete</button></div></div></div>`).join('')||'<p class="muted">No routines yet.</p>';}
+function open(r=null){$('routineId').value=r?.id||'';$('routineName').value=r?.name||'';$('routineDay').value=r?.day||'';$('routineSets').value=r?.sets||3;$('routineExercises').value=(r?.exerciseIds||[]).map(name).join('\n');$('routineDialog').showModal();}
+requireAuth(async u=>{user=u;[routines,exercises]=await Promise.all([loadCollection(u.uid,'routines'),loadCollection(u.uid,'exercises')]);render();$('newRoutineBtn').onclick=()=>open();$('closeRoutine').onclick=()=>$('routineDialog').close();$('routineList').onclick=async e=>{const id=e.target.dataset.edit||e.target.dataset.delete;if(!id)return;if(e.target.dataset.edit)open(routines.find(x=>x.id===id));else if(confirm('Delete this routine?')){await deleteDoc(userDoc(u.uid,'routines',id));routines=routines.filter(x=>x.id!==id);render();}};$('routineForm').onsubmit=async e=>{e.preventDefault();const lines=$('routineExercises').value.split('\n').map(x=>x.trim()).filter(Boolean),ids=lines.map(line=>exercises.find(x=>x.name.toLowerCase()===line.toLowerCase())?.id).filter(Boolean),data={name:$('routineName').value.trim(),day:$('routineDay').value.trim(),sets:num($('routineSets').value,3),exerciseIds:ids,updatedAt:serverTimestamp()},id=$('routineId').value;if(id){await setDoc(userDoc(u.uid,'routines',id),data,{merge:true});const i=routines.findIndex(x=>x.id===id);routines[i]={...routines[i],...data};}else{const ref=await addDoc(userCollection(u.uid,'routines'),{...data,createdAt:serverTimestamp()});routines.push({id:ref.id,...data});}$('routineDialog').close();render();};});

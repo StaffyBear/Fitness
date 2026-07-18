@@ -1,0 +1,11 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#7c3f91"><title>Home · Frever Fitness</title><link rel="stylesheet" href="/css/styles.css?v=6.0.0"></head><body>
+<header class="app-header"><div class="brand-row"><a class="logo" href="/home/" aria-label="Frever Fitness home">🐼</a><div class="brand"><h1>Frever Fitness</h1><p>Workouts, routines, PBs and body tracking</p></div><span class="user-pill" data-user-email>Signed in</span></div></header>
+<nav class="top-nav"><div class="nav-inner"><a class="nav-link active" href="/home/">🏠 Home</a><a class="nav-link " href="/workout/">🏋️ Workout</a><a class="nav-link " href="/routines/">📋 Routines</a><a class="nav-link " href="/history/">🕘 History</a><a class="nav-link " href="/pbs/">🏆 PBs</a><a class="nav-link " href="/body/">📏 Body</a><a class="nav-link " href="/meals/">🍽️ Meals</a><a class="nav-link " href="/exercises/">📚 Exercises</a><a class="nav-link " href="/settings/">⚙️ Settings</a></div></nav><main><div class="page-head"><div><h2>Home</h2><p class="muted">Your fitness dashboard</p></div></div><section class="grid tiles">
+<a class="tile primary" href="/workout/"><span class="tile-icon">🏋️</span><strong>Start workout</strong><span>Log sets, reps and weight</span></a>
+<a class="tile" href="/routines/"><span class="tile-icon">📋</span><strong>Routines</strong><span>Follow or adapt your plan</span></a>
+<a class="tile" href="/history/"><span class="tile-icon">🕘</span><strong>Workout history</strong><span>Review previous sessions</span></a>
+<a class="tile" href="/pbs/"><span class="tile-icon">🏆</span><strong>Personal bests</strong><span>See strength progress</span></a>
+<a class="tile" href="/body/"><span class="tile-icon">📏</span><strong>Body tracking</strong><span>Weight, measurements and BMI</span></a>
+<a class="tile" href="/meals/"><span class="tile-icon">🍽️</span><strong>Meal planner</strong><span>Plan your week</span></a>
+<a class="tile" href="/exercises/"><span class="tile-icon">📚</span><strong>Exercises</strong><span>Manage your library</span></a>
+<a class="tile" href="/settings/"><span class="tile-icon">⚙️</span><strong>Settings</strong><span>Defaults and account</span></a></section></main><script type="module" src="/js/home.js?v=6.0.0"></script></body></html>
