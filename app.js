@@ -47,7 +47,18 @@ let routines = [];
 let bodyEntries = [];
 let mealPlans = [];
 let mealWeekStart = startOfWeek(new Date());
-let settings = { unit: "kg", weightMode: "total", measureUnit: "cm", defaultRest: 60, autoRest: false, defaultReps: 10, defaultSets: 3, heightCm: 0 };
+let settings = { unit: "kg", weightMode: "total", measureUnit: "cm", defaultRest: 60, autoRest: false, defaultReps: 10, defaultSets: 3, heightCm: 0, bottomNav: ["workout", "history", "pbs", "routines"] };
+const bottomNavPages = [
+  { id: "workout", label: "Workout", icon: "🏋️" },
+  { id: "history", label: "History", icon: "🕘" },
+  { id: "pbs", label: "PBs", icon: "🏆" },
+  { id: "routines", label: "Routines", icon: "📋" },
+  { id: "body", label: "Body", icon: "📏" },
+  { id: "food", label: "Food", icon: "🍽️" },
+  { id: "timer", label: "Timer", icon: "⏱️" },
+  { id: "library", label: "Exercises", icon: "💪" },
+  { id: "settings", label: "Settings", icon: "⚙️" }
+];
 let manualSets = [];
 let manualRounds = [];
 let manualRoundNumber = 1;
@@ -126,7 +137,10 @@ function formatDate(date) {
 function startOfWeek(date) { const d = new Date(date); const day = (d.getDay()+6)%7; d.setHours(12,0,0,0); d.setDate(d.getDate()-day); return d; }
 function isoDate(date){ return date.toISOString().slice(0,10); }
 function addDays(date, amount){ const d=new Date(date); d.setDate(d.getDate()+amount); return d; }
-function pageTitle(name){ return ({dashboard:"Dashboard",workout:"Workout",routines:"Routines",history:"Workout history",pbs:"Personal bests",body:"Body tracking",food:"Meal planner",timer:"Timer",library:"Exercises",settings:"Settings"})[name] || "Frever Fitness"; }
+function pageTitle(name){ return ({dashboard:"Dashboard",workout:"Workout",routines:"Routines",history:"Workout history",pbs:"Personal bests",body:"Body tracking",food:"Meal planner",classes:"Local classes",timer:"Timer",library:"Exercises",settings:"Settings"})[name] || "Frever Fitness"; }
+const pageFiles = {dashboard:"home.html",workout:"workout.html",routines:"routines.html",history:"history.html",pbs:"pbs.html",body:"body.html",food:"food.html",classes:"classes.html",timer:"timer.html",library:"exercises.html",settings:"settings.html"};
+const initialPage = document.body?.dataset?.startPage || "dashboard";
+function openPage(tabName){ const file=pageFiles[tabName]; if(!file){ switchTab(tabName); return; } const current=location.pathname.split("/").pop() || "index.html"; if(current===file || (tabName==="dashboard" && current==="index.html")){ switchTab(tabName); } else { location.href=`./${file}`; } }
 
 function showToast(message) {
   $("toastText").textContent = message;
@@ -142,6 +156,7 @@ function switchTab(tabName) {
   document.querySelectorAll(".panel").forEach((element) => element.classList.remove("active"));
   $(tabName)?.classList.add("active");
   if ($("activePageTitle")) $("activePageTitle").textContent = pageTitle(tabName);
+  document.querySelectorAll("#bottomNav [data-tab]").forEach(button => button.classList.toggle("active", button.dataset.tab === tabName));
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -438,12 +453,13 @@ function renderPBs() {
     let best;
     if (exerciseInputType(exercise) === "time" || exerciseInputType(exercise) === "repsOnly") best = [...entries].sort((a,b)=>number(b.reps)-number(a.reps))[0];
     else best = [...entries].sort((a,b)=>number(b.weight)-number(a.weight)||number(b.reps)-number(a.reps))[0];
+    const name = `${exercise?.name || best.exerciseName || "Exercise"}${side !== "both" ? ` — ${side}` : ""}`;
     const value = exerciseInputType(exercise) === "time" ? `${best.reps} sec` : exerciseInputType(exercise) === "repsOnly" ? `${best.reps} reps` : `${best.weight} ${settings.unit} × ${best.reps}`;
-    cards.push(`<button class="item history-item" data-pb-exercise="${escapeHtml(exerciseId)}" data-pb-side="${escapeHtml(side)}" type="button"><div class="item-title">${escapeHtml(exercise?.name || best.exerciseName || "Exercise")}${side !== "both" ? ` — ${escapeHtml(side)}` : ""}</div><div class="item-meta"><span class="pb-badge">PB</span> ${escapeHtml(value)} · ${formatDate(best.date)}<br><span class="link-hint">Tap for progress graph</span></div></button>`);
+    cards.push({ name, html: `<button class="pb-row" data-pb-exercise="${escapeHtml(exerciseId)}" data-pb-side="${escapeHtml(side)}" type="button"><span class="pb-row-icon">🏆</span><span class="pb-row-copy"><strong>${escapeHtml(name)}</strong><small>${escapeHtml(value)} · ${formatDate(best.date)}</small></span><span class="pb-row-chart" aria-hidden="true">↗</span><span class="pb-row-chevron" aria-hidden="true">›</span></button>` });
   }
-  $("pbList").innerHTML = cards.join("");
+  cards.sort((a,b)=>a.name.localeCompare(b.name, "en-GB", { sensitivity: "base" }));
+  $("pbList").innerHTML = cards.map(card=>card.html).join("");
 }
-
 function drawLineChart(canvas, points, labelFormatter = value => String(value)) {
   const ctx = canvas.getContext("2d");
   const ratio = window.devicePixelRatio || 1;
@@ -456,13 +472,13 @@ function drawLineChart(canvas, points, labelFormatter = value => String(value)) 
   let min = Math.min(...values), max = Math.max(...values); if (min===max){min-=1;max+=1;}
   const x = i => pad.l + (points.length===1 ? (width-pad.l-pad.r)/2 : i*(width-pad.l-pad.r)/(points.length-1));
   const y = v => pad.t + (max-v)*(height-pad.t-pad.b)/(max-min);
-  ctx.strokeStyle = "#d9d0df"; ctx.lineWidth=1;
+  ctx.strokeStyle = "#d8e1ec"; ctx.lineWidth=1;
   for(let i=0;i<4;i++){const yy=pad.t+i*(height-pad.t-pad.b)/3;ctx.beginPath();ctx.moveTo(pad.l,yy);ctx.lineTo(width-pad.r,yy);ctx.stroke();}
-  ctx.fillStyle="#655d69"; ctx.font="12px system-ui"; ctx.textAlign="right";
+  ctx.fillStyle="#64748b"; ctx.font="12px system-ui"; ctx.textAlign="right";
   ctx.fillText(labelFormatter(max),pad.l-8,pad.t+4); ctx.fillText(labelFormatter(min),pad.l-8,height-pad.b+4);
-  ctx.strokeStyle="#7b5a91"; ctx.lineWidth=3; ctx.beginPath(); points.forEach((p,i)=>{const xx=x(i),yy=y(p.value); i?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy)}); ctx.stroke();
-  ctx.fillStyle="#7b5a91"; points.forEach((p,i)=>{ctx.beginPath();ctx.arc(x(i),y(p.value),4,0,Math.PI*2);ctx.fill();});
-  ctx.fillStyle="#655d69";ctx.textAlign="center";const labels=points.length>5?[0,Math.floor((points.length-1)/2),points.length-1]:points.map((_,i)=>i);labels.forEach(i=>ctx.fillText(new Date(`${points[i].date}T12:00:00`).toLocaleDateString("en-GB",{day:"2-digit",month:"short"}),x(i),height-15));
+  ctx.strokeStyle="#1677d2"; ctx.lineWidth=3; ctx.beginPath(); points.forEach((p,i)=>{const xx=x(i),yy=y(p.value); i?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy)}); ctx.stroke();
+  ctx.fillStyle="#1677d2"; points.forEach((p,i)=>{ctx.beginPath();ctx.arc(x(i),y(p.value),4,0,Math.PI*2);ctx.fill();});
+  ctx.fillStyle="#64748b";ctx.textAlign="center";const labels=points.length>5?[0,Math.floor((points.length-1)/2),points.length-1]:points.map((_,i)=>i);labels.forEach(i=>ctx.fillText(new Date(`${points[i].date}T12:00:00`).toLocaleDateString("en-GB",{day:"2-digit",month:"short"}),x(i),height-15));
   return true;
 }
 
@@ -472,7 +488,12 @@ function openPBChart(exerciseId, side="both") {
   const byDate=new Map(); sets.forEach(set=>{const val=exerciseInputType(exercise)==="repsWeight"?number(set.weight):number(set.reps);byDate.set(set.date,Math.max(val,byDate.get(set.date)??-Infinity));});
   const points=[...byDate].map(([date,value])=>({date,value}));
   drawLineChart($("pbChart"),points,v=>exerciseInputType(exercise)==="repsWeight"?`${v}${settings.unit}`:`${v}${exerciseInputType(exercise)==="time"?"s":""}`);
-  $("pbChartList").innerHTML=[...sets].reverse().slice(0,20).map(set=>`<div class="item"><div class="item-title">${formatDate(set.date)}</div><div class="item-meta">${set.inputType==="time"?`${set.reps} sec`:set.inputType==="repsOnly"?`${set.reps} reps`:`${set.weight} ${settings.unit} × ${set.reps}`}</div></div>`).join("");
+  const groupedSets = new Map();
+  [...sets].reverse().forEach(set => {
+    if (!groupedSets.has(set.date)) groupedSets.set(set.date, []);
+    groupedSets.get(set.date).push(set);
+  });
+  $("pbChartList").innerHTML=[...groupedSets.entries()].slice(0,20).map(([date, dateSets])=>`<div class="progress-date-group"><strong>${formatDate(date)}</strong><div>${dateSets.map(set=>`<span>${set.inputType==="time"?`${set.reps} sec`:set.inputType==="repsOnly"?`${set.reps} reps`:`${set.weight} ${settings.unit} × ${set.reps}`}</span>`).join("")}</div></div>`).join("");
   $("pbChartDialog").showModal();
 }
 
@@ -909,6 +930,29 @@ function renderBodyHistory(){
   $("bodyHistoryList").innerHTML=bodyEntries.length?bodyEntries.map(entry=>{const detail=entry.type==="weight"?`${entry.weight} ${entry.unit||settings.unit}`:Object.entries(entry.measurements||{}).filter(([,v])=>number(v)>0).map(([k,v])=>`${measurementLabel(k)}: ${v}${entry.unit||settings.measureUnit}`).join(" · ");return `<div class="item"><div class="item-title">${entry.type==="weight"?"Weight":"Measurements"}</div><div class="item-meta">${formatDate(entry.date)} · ${escapeHtml(detail)}</div><div class="item-actions"><button class="danger small" data-delete-body="${escapeHtml(entry.id)}" type="button">Delete</button></div></div>`}).join(""):`<p class="muted">No body entries yet.</p>`;
 }
 
+function normaliseBottomNav(value) {
+  const valid = new Set(bottomNavPages.map(page => page.id));
+  const selected = Array.isArray(value) ? value.filter(id => valid.has(id)) : [];
+  return [...new Set(selected)].slice(0, 4).length ? [...new Set(selected)].slice(0, 4) : ["workout", "history", "pbs", "routines"];
+}
+function renderBottomNavChoices() {
+  if (!$("bottomNavChoices")) return;
+  const selected = normaliseBottomNav(settings.bottomNav);
+  $("bottomNavChoices").innerHTML = bottomNavPages.map(page => `<label class="nav-choice"><input type="checkbox" value="${page.id}" ${selected.includes(page.id) ? "checked" : ""}/><span>${page.icon} ${page.label}</span></label>`).join("");
+}
+function renderBottomNav() {
+  if (!$("bottomNav")) return;
+  const selected = normaliseBottomNav(settings.bottomNav);
+  const pages = [{ id: "dashboard", label: "Home", icon: "⌂" }, ...selected.map(id => bottomNavPages.find(page => page.id === id)).filter(Boolean)];
+  $("bottomNav").innerHTML = pages.map(page => `<button data-tab="${page.id}" type="button"><span>${page.icon}</span><small>${page.label}</small></button>`).join("");
+  $("bottomNav").querySelectorAll("[data-tab]").forEach(button => button.onclick = () => openPage(button.dataset.tab));
+  const active = document.querySelector(".panel.active")?.id || "dashboard";
+  $("bottomNav").querySelectorAll("[data-tab]").forEach(button => button.classList.toggle("active", button.dataset.tab === active));
+}
+function selectedBottomNavFromUI() {
+  return [...document.querySelectorAll("#bottomNavChoices input:checked")].map(input => input.value).slice(0, 4);
+}
+
 function applySettingsToUI() {
   $("unitSetting").value = settings.unit;
   $("weightModeSetting").value = settings.weightMode;
@@ -920,6 +964,9 @@ function applySettingsToUI() {
   $("heightSetting").value = settings.heightCm ? String(settings.heightCm) : "";
   $("weightUnitLabel").textContent = settings.unit;
   $("weightUnitText").textContent = settings.unit;
+  settings.bottomNav = normaliseBottomNav(settings.bottomNav);
+  renderBottomNavChoices();
+  renderBottomNav();
 }
 
 async function saveSettings() {
@@ -931,7 +978,8 @@ async function saveSettings() {
     defaultRest: number($("defaultRestSetting").value, 60),
     defaultReps: Math.max(1, number($("defaultRepsSetting").value, 10)),
     defaultSets: Math.max(1, number($("defaultSetsSetting").value, 3)),
-    heightCm: Math.max(0, number($("heightSetting").value, 0))
+    heightCm: Math.max(0, number($("heightSetting").value, 0)),
+    bottomNav: selectedBottomNavFromUI()
   };
   await setDoc(doc(db, "users", currentUser.uid, "profile", "settings"), settings, { merge: true });
   applySettingsToUI();
@@ -962,12 +1010,12 @@ function workoutStats(workout) {
   return { exerciseCount, setCount, reps, volume };
 }
 function renderHistory() {
-  if (!$('historyList')) return;
-  if (!workouts.length) { $('historyList').innerHTML = `<p class="muted">No workouts saved yet.</p>`; return; }
-  $('historyList').innerHTML = workouts.map(workout => {
+  if (!$("historyList")) return;
+  if (!workouts.length) { $("historyList").innerHTML = `<p class="muted">No workouts saved yet.</p>`; return; }
+  $("historyList").innerHTML = workouts.map(workout => {
     const stats = workoutStats(workout);
-    return `<div class="item history-card"><div class="item-title history-date">${formatDate(workout.date)}</div><div class="history-stats"><span><strong>${stats.exerciseCount}</strong> exercises</span><span><strong>${stats.setCount}</strong> sets</span><span><strong>${stats.reps}</strong> reps</span><span><strong>${Math.round(stats.volume).toLocaleString('en-GB')}</strong> ${escapeHtml(settings.unit)} volume</span></div><div class="item-actions four-actions"><button class="secondary small" data-view-workout="${escapeHtml(workout.id)}" type="button">View</button><button class="secondary small" data-edit-workout="${escapeHtml(workout.id)}" type="button">Edit</button><button class="secondary small" data-copy-workout="${escapeHtml(workout.id)}" type="button">Copy</button><button class="danger small" data-delete-workout="${escapeHtml(workout.id)}" type="button">Delete</button></div></div>`;
-  }).join('');
+    return `<div class="item history-card compact-history-card"><div class="history-summary-line"><strong>${formatDate(workout.date)}</strong><span>${stats.exerciseCount} exercises</span><span>${stats.setCount} sets</span><span>${stats.reps} reps</span><span>${Math.round(stats.volume).toLocaleString("en-GB")} ${escapeHtml(settings.unit)}</span></div><div class="item-actions four-actions"><button class="secondary small" data-view-workout="${escapeHtml(workout.id)}" type="button">View</button><button class="secondary small" data-edit-workout="${escapeHtml(workout.id)}" type="button">Edit</button><button class="secondary small" data-copy-workout="${escapeHtml(workout.id)}" type="button">Copy</button><button class="danger small" data-delete-workout="${escapeHtml(workout.id)}" type="button">Delete</button></div></div>`;
+  }).join("");
 }
 function workoutDetailHtml(workout){return (workout.exercises||[]).map(entry=>`<div class="item"><div class="item-title">${escapeHtml(entry.exerciseName||exerciseById(entry.exerciseId)?.name||"Exercise")}</div>${(entry.sets||[]).map((set,i)=>`<div class="item-meta">Set ${i+1}: ${set.inputType==="time"?`${set.reps} sec`:set.inputType==="repsOnly"?`${set.reps} reps`:`${set.reps} reps @ ${set.weight||0} ${settings.unit}`}${set.side&&set.side!=="both"?` · ${escapeHtml(set.side)}`:""}${set.notes?` · ${escapeHtml(set.notes)}`:""}</div>`).join("")}</div>`).join("");}
 function openWorkoutHistory(id){const workout=workouts.find(w=>w.id===id);if(!workout)return;$("historyDialogTitle").textContent=workout.routineName||`Workout — ${formatDate(workout.date)}`;$("historyDialogBody").innerHTML=workoutDetailHtml(workout);$("historyDialog").showModal();}
@@ -1132,7 +1180,7 @@ $("toastCloseBtn").onclick = () => $("toastDialog").close();
 $("confirmCancelBtn").onclick = () => { $("confirmDialog").close(); confirmResolver?.(false); confirmResolver = null; };
 $("confirmOkBtn").onclick = () => { $("confirmDialog").close(); confirmResolver?.(true); confirmResolver = null; };
 
-document.querySelectorAll("[data-tab]").forEach((tab) => tab.onclick = () => switchTab(tab.dataset.tab));
+document.querySelectorAll("[data-tab]").forEach((tab) => tab.onclick = () => openPage(tab.dataset.tab));
 $("moreTileBtn").onclick = () => $("moreTiles").classList.toggle("hidden");
 $("quickAddExerciseBtn").onclick = () => { switchTab("library"); clearExerciseForm(); };
 $("demoBtn").onclick = () => { const exercise = selectedExercise(); if (exercise?.demo) window.open(exercise.demo, "_blank", "noopener"); };
@@ -1157,6 +1205,14 @@ $("timerStartBtn").onclick = startPauseTimer;
 $("timerResetBtn").onclick = resetTimer;
 document.querySelectorAll("[data-timer-mode]").forEach((button) => button.onclick = () => setTimerMode(button.dataset.timerMode));
 document.querySelectorAll("[data-seconds]").forEach((button) => button.onclick = () => { running = false; clearInterval(timerHandle); countdownMs = number(button.dataset.seconds) * 1000; renderTimer(); $("timerStatus").textContent = `${button.dataset.seconds} second rest selected`; });
+
+$("bottomNavChoices")?.addEventListener("change", (event) => {
+  const checked = [...document.querySelectorAll("#bottomNavChoices input:checked")];
+  if (checked.length > 4) {
+    event.target.checked = false;
+    showToast("Choose up to four favourites. Home is always included.");
+  }
+});
 
 // Delegated events
 $("roundExerciseList").onclick = (event) => {
@@ -1324,6 +1380,7 @@ onAuthStateChanged(auth, async (user) => {
   if (!user) return;
   try {
     await loadAll();
+    switchTab(initialPage);
   } catch (error) {
     console.error(error);
     showToast(`You are logged in, but fitness data could not be loaded: ${error.message || "Firestore access failed."}`);
