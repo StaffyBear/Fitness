@@ -204,3 +204,16 @@ body{background:linear-gradient(180deg,#edf3f9 0,#f6f8fb 42%,#eef3f8 100%);paddi
   .history-round-grid { grid-template-columns: 1fr; }
   .history-round-card { padding: 11px; }
 }
+
+/* v8.4 workout-flow refinements */
+.workout-session-clock{font-size:.85rem;color:var(--muted);margin-top:.2rem}
+.exercise-search-row{display:flex;gap:.55rem;align-items:center;margin-top:.65rem}
+.exercise-search-row input{min-width:0;flex:1}
+.inline-filter{display:flex;align-items:center;gap:.45rem;font-size:.85rem;font-weight:700}
+.inline-filter select{width:auto;min-width:9rem;padding:.55rem .7rem}
+.history-card .item-meta,.history-summary{white-space:normal;overflow:visible;text-overflow:clip}
+@media (max-width:760px){.exercise-search-row{flex-wrap:wrap}.exercise-search-row input{flex-basis:100%}.inline-filter{width:100%}.inline-filter select{flex:1}.history-list,.tile-list{grid-template-columns:1fr!important}}
+.history-period-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem;margin:1rem 0}
+.history-period-stats>div{background:var(--soft);border-radius:14px;padding:.8rem 1rem;display:flex;flex-direction:column;gap:.25rem}
+.history-period-stats span{font-size:.86rem;color:var(--muted)}
+@media(max-width:620px){.history-period-stats{grid-template-columns:1fr}}

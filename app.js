@@ -52,6 +52,13 @@ let routines = [];
 let bodyEntries = [];
 let mealPlans = [];
 let classes = [];
+let classDayFilter = "all";
+let routineSortMode = "day";
+let workoutSessionStartedAt = null;
+let workoutSessionElapsedBeforePause = 0;
+let workoutSessionPausedAt = null;
+let workoutSessionTicker = null;
+let selectedExerciseInfoId = null;
 let mealWeekStart = startOfWeek(new Date());
 let settings = { unit: "kg", weightMode: "total", measureUnit: "cm", defaultRest: 60, autoRest: false, defaultReps: 10, defaultSets: 3, heightCm: 0, bottomNav: ["workout", "history", "pbs", "body"], homeTiles: ["workout","routines","history","pbs","body","food","classes","timer","library","settings"], mealSlots: ["Breakfast","AM Snack","Lunch","PM Snack","Dinner"] };
 const bottomNavPages = [
@@ -74,6 +81,7 @@ const homeTileCatalog = [
   { id:"library", label:"Exercises", icon:"💪" }, { id:"settings", label:"Settings", icon:"⚙️" }
 ];
 let foodView = "planner";
+let selectedFoodDate = new Date();
 
 let manualSets = [];
 let manualRounds = [];
@@ -153,6 +161,18 @@ function formatDate(date) {
 function startOfWeek(date) { const d = new Date(date); const day = (d.getDay()+6)%7; d.setHours(12,0,0,0); d.setDate(d.getDate()-day); return d; }
 function isoDate(date){ return date.toISOString().slice(0,10); }
 function addDays(date, amount){ const d=new Date(date); d.setDate(d.getDate()+amount); return d; }
+function dateValue(value){ const d=new Date(`${value||"1970-01-01"}T00:00:00`); return Number.isNaN(d.getTime())?0:d.getTime(); }
+function sortWorkoutsByDate(){ workouts.sort((a,b)=> dateValue(b.date)-dateValue(a.date) || number(b.createdAt?.seconds)-number(a.createdAt?.seconds)); }
+const dayOrder={Monday:1,Tuesday:2,Wednesday:3,Thursday:4,Friday:5,Saturday:6,Sunday:7};
+function sortClasses(){ classes.sort((a,b)=>(dayOrder[a.day]||99)-(dayOrder[b.day]||99)||String(a.time||"").localeCompare(String(b.time||""))||String(a.name||"").localeCompare(String(b.name||""))); }
+function sortedRoutines(){ const list=[...routines]; if(routineSortMode==="name") return list.sort((a,b)=>String(a.name||"").localeCompare(String(b.name||""))); if(routineSortMode==="updated") return list.sort((a,b)=>number(b.updatedAt?.seconds)-number(a.updatedAt?.seconds)); if(routineSortMode==="last") return list.sort((a,b)=>dateValue(b.lastPerformedDate)-dateValue(a.lastPerformedDate)); return list.sort((a,b)=>(dayOrder[a.day]||99)-(dayOrder[b.day]||99)||String(a.name||"").localeCompare(String(b.name||""))); }
+function workoutElapsedMs(){ if(!workoutSessionStartedAt)return 0; if(workoutSessionPausedAt)return workoutSessionElapsedBeforePause; return workoutSessionElapsedBeforePause+(Date.now()-workoutSessionStartedAt); }
+function formatDuration(ms){ const total=Math.floor(ms/1000),h=Math.floor(total/3600),m=Math.floor((total%3600)/60),sec=total%60; return h?`${h}:${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`:`${m}:${String(sec).padStart(2,"0")}`; }
+function renderWorkoutSessionTimer(){ const el=$("workoutSessionTime"); if(el)el.textContent=formatDuration(workoutElapsedMs()); }
+function startWorkoutSessionTimer(){ if(workoutSessionStartedAt&&!workoutSessionPausedAt)return; if(workoutSessionPausedAt){workoutSessionStartedAt=Date.now();workoutSessionPausedAt=null;} else {workoutSessionStartedAt=Date.now();workoutSessionElapsedBeforePause=0;} clearInterval(workoutSessionTicker);workoutSessionTicker=setInterval(renderWorkoutSessionTimer,1000);renderWorkoutSessionTimer();localStorage.setItem("freverActiveWorkoutStart",String(Date.now()-workoutSessionElapsedBeforePause)); }
+function stopWorkoutSessionTimer(){ const ms=workoutElapsedMs();clearInterval(workoutSessionTicker);workoutSessionStartedAt=null;workoutSessionPausedAt=null;workoutSessionElapsedBeforePause=0;localStorage.removeItem("freverActiveWorkoutStart");renderWorkoutSessionTimer();return ms; }
+function ensureWorkoutTimer(){ if(!workoutSessionStartedAt){const saved=number(localStorage.getItem("freverActiveWorkoutStart"));if(saved){workoutSessionStartedAt=Date.now();workoutSessionElapsedBeforePause=Math.max(0,Date.now()-saved);}else startWorkoutSessionTimer();} renderWorkoutSessionTimer(); }
+
 function pageTitle(name){ return ({dashboard:"Dashboard",workout:"Workout",routines:"Routines",history:"Workout history",pbs:"Personal bests",body:"Body tracking",food:"Meal planner",classes:"Local classes",timer:"Timer",library:"Exercises",settings:"Settings"})[name] || "Frever Fitness"; }
 const pageFiles = {dashboard:"home.html",workout:"workout.html",routines:"routines.html",history:"history.html",pbs:"pbs.html",body:"body.html",food:"food.html",classes:"classes.html",timer:"timer.html",library:"exercises.html",settings:"settings.html"};
 const initialPage = document.body?.dataset?.startPage || "dashboard";
@@ -242,7 +262,8 @@ async function loadAll() {
   workouts.sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")) || number(b.createdAt?.seconds) - number(a.createdAt?.seconds));
   routines.sort((a, b) => a.name.localeCompare(b.name));
   bodyEntries.sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
-  classes.sort((a,b)=>String(a.day||"").localeCompare(String(b.day||"")) || String(a.time||"").localeCompare(String(b.time||"")));
+  sortClasses();
+  sortWorkoutsByDate();
   renderEverything();
 }
 
@@ -317,7 +338,8 @@ function groupExerciseCard(item, index) {
       <div class="mini-stepper"><span>${inputType === "time" ? "SECONDS" : "REPS"}</span><div><button data-group-adjust="reps" data-delta="-1" type="button">▼</button><input data-group-field="reps" inputmode="numeric" value="${number(item.reps,10)}"/><button data-group-adjust="reps" data-delta="1" type="button">▲</button></div></div>
       <div class="mini-stepper ${inputType !== "repsWeight" ? "hidden" : ""}"><span>WEIGHT (${escapeHtml(settings.unit)})</span><div><button data-group-adjust="weight" data-delta="-1" type="button">▼</button><input data-group-field="weight" inputmode="decimal" value="${number(item.weight)}"/><button data-group-adjust="weight" data-delta="1" type="button">▲</button></div></div>
     </div>
-    <div class="set-target-row"><span>${completed.length} of ${item.targetSets} sets saved</span><div class="row gap"><button class="secondary small" data-save-single-set type="button">✓ Save set</button><button class="ghost small" data-add-target-set type="button">+ Set</button></div></div>
+    <div class="exercise-search-row"><input data-exercise-filter placeholder="Search exercises…" aria-label="Search exercises"/><button class="ghost small" data-view-exercise type="button">View exercise</button></div>
+    <div class="set-target-row"><button class="secondary small" data-save-single-set type="button">✓ Save set</button></div>
     <div class="inline-set-list">${completed.map((set, setIndex) => `<button class="saved-set-chip" data-edit-inline-set="${setIndex}" type="button">Set ${setIndex+1}: ${set.inputType === "time" ? `${set.reps}s` : set.inputType === "repsOnly" ? `${set.reps} reps` : `${set.reps} × ${set.weight}${settings.unit}`}${set.side !== "both" ? ` · ${set.side}` : ""} ✎</button>`).join("")}</div>
   </article>`;
 }
@@ -367,6 +389,7 @@ function calculatePBForSet(exerciseId, set) {
 }
 
 function saveOneSet(uid) {
+  ensureWorkoutTimer();
   syncManualGroupFromDOM();
   const item = manualGroupExercises.find(entry => entry.uid === uid);
   if (!item) return;
@@ -472,10 +495,13 @@ async function savePairWorkout() {
     if (!grouped.has(key)) grouped.set(key, { exerciseId: entry.exerciseId, exerciseName: entry.exerciseName, sets: [] });
     grouped.get(key).sets.push({ setNumber: grouped.get(key).sets.length + 1, reps: entry.reps, weight: entry.weight, inputType: entry.inputType, side: entry.side, notes: entry.notes, completedAt: entry.completedAt, isPB: entry.isPB, roundNumber: round.roundNumber });
   }));
-  const workout = { date: $("workoutDate").value || today(), source: activeRoutineSession ? "routine" : "manual", routineId: activeRoutineSession?.routineId || null, routineName: activeRoutineSession?.routineName || null, notes: $("roundNotes")?.value.trim() || "", exercises: [...grouped.values()], rounds: workoutRoundsPayload(), createdAt: serverTimestamp() };
+  const durationMs = workoutElapsedMs();
+  const workout = { date: $("workoutDate").value || today(), durationMs, source: activeRoutineSession ? "routine" : "manual", routineId: activeRoutineSession?.routineId || null, routineName: activeRoutineSession?.routineName || null, notes: $("roundNotes")?.value.trim() || "", exercises: [...grouped.values()], rounds: workoutRoundsPayload(), createdAt: serverTimestamp() };
   const ref = await addDoc(userCollection("workouts"), workout);
+  if(activeRoutineSession?.routineId){ const routine=routines.find(r=>r.id===activeRoutineSession.routineId); if(routine){routine.lastPerformedDate=workout.date; await setDoc(userDoc("routines",routine.id),{lastPerformedDate:workout.date,updatedAt:serverTimestamp()},{merge:true});}}
   workouts.unshift({ id: ref.id, ...workout, createdAt: { seconds: Math.floor(Date.now()/1000) } });
   activeRoutineSession = null;
+  stopWorkoutSessionTimer();
   resetManualEntry(true);
   renderPBs(); renderHistory(); renderExerciseLibrary(); renderBodyChart();
   showToast("Workout saved.");
@@ -787,7 +813,7 @@ function renderRoutines() {
     $("routineList").innerHTML = `<p class="muted">No routines yet. Create one by choosing exercises in the order you want to complete them.</p>`;
     return;
   }
-  $("routineList").innerHTML = routines.map((routine) => {
+  $("routineList").innerHTML = sortedRoutines().map((routine) => {
     const rounds = (routine.blocks || []).map((block, index) => `<div class="routine-round-preview"><strong>Round ${index + 1}</strong><span>${(block.exercises || []).map((entry) => escapeHtml(exerciseById(entry.exerciseId)?.name || "Missing exercise")).join(" · ")}</span></div>`).join("");
     return `<div class="item routine-card"><div class="item-title">${escapeHtml(routine.name)}</div>${routine.day ? `<div class="item-meta">${escapeHtml(routine.day)}</div>` : ""}<div class="routine-preview-list">${rounds}</div><div class="item-actions"><button class="primary small" data-start-routine="${escapeHtml(routine.id)}" type="button">Start routine</button><button class="secondary small" data-edit-routine="${escapeHtml(routine.id)}" type="button">Edit</button><button class="danger small" data-delete-routine="${escapeHtml(routine.id)}" type="button">Delete</button></div></div>`;
   }).join("");
@@ -814,6 +840,7 @@ function loadRoutineRound(blockIndex) {
 function startRoutine(id) {
   const routine = routines.find((entry) => entry.id === id);
   if (!routine) return;
+  startWorkoutSessionTimer();
   activeRoutineSession = {
     routineId: routine.id,
     routineName: routine.name,
@@ -822,7 +849,12 @@ function startRoutine(id) {
     currentBlockIndex: 0
   };
   manualRounds = [];
-  $("workoutDate").value = today();
+  $("routineSortSelect")?.addEventListener("change",event=>{routineSortMode=event.target.value;renderRoutines();});
+$("classDayFilter")?.addEventListener("change",event=>{classDayFilter=event.target.value;renderClasses();});
+$("roundExerciseList")?.addEventListener("input",event=>{if(!event.target.matches("[data-exercise-filter]"))return;const card=event.target.closest("[data-group-uid]");const select=card?.querySelector("[data-group-field=exerciseId]");if(!select)return;const q=event.target.value.trim().toLowerCase();[...select.options].forEach(o=>o.hidden=q&&!o.text.toLowerCase().includes(q));});
+$("roundExerciseList")?.addEventListener("click",event=>{const btn=event.target.closest("[data-view-exercise]");if(!btn)return;const card=btn.closest("[data-group-uid]");const id=card?.querySelector("[data-group-field=exerciseId]")?.value;const ex=exerciseById(id);if(!ex)return;$("exerciseInfoTitle").textContent=ex.name;$("exerciseInfoBody").innerHTML=`<p><strong>Category:</strong> ${escapeHtml(ex.category||"Other")}</p><p><strong>Equipment:</strong> ${escapeHtml(ex.equipment||"None")}</p><p><strong>Tracking:</strong> ${escapeHtml(ex.inputType||"repsWeight")}</p><p>${escapeHtml(ex.instructions||"Exercise instructions and video will be added here.")}</p>${ex.videoUrl?`<p><a class="primary button-link" target="_blank" rel="noopener" href="${escapeHtml(ex.videoUrl)}">Open video</a></p>`:""}`;$("exerciseInfoDialog").showModal();});
+$("exerciseInfoClose")?.addEventListener("click",()=>$("exerciseInfoDialog").close());
+$("workoutDate").value = today();
   $("routineSessionCard").classList.add("hidden");
   $("manualWorkoutCard")?.classList.remove("hidden");
   $("manualSetCard")?.classList.remove("hidden");
@@ -1182,14 +1214,19 @@ function workoutStats(workout) {
   const setCount = sets.length;
   const reps = sets.reduce((total, set) => total + (set.inputType === "time" ? 0 : number(set.reps)), 0);
   const volume = sets.reduce((total, set) => total + (set.inputType === "repsWeight" ? number(set.reps) * number(set.weight) : 0), 0);
-  return { exerciseCount, setCount, reps, volume };
+  return { exerciseCount, setCount, reps, volume, durationMs:number(workout.durationMs) };
 }
 function renderHistory() {
+  sortWorkoutsByDate();
   if (!$("historyList")) return;
-  if (!workouts.length) { $("historyList").innerHTML = `<p class="muted">No workouts saved yet.</p>`; return; }
+  if (!workouts.length) { if($("historyPeriodStats")) $("historyPeriodStats").innerHTML=""; $("historyList").innerHTML = `<p class="muted">No workouts saved yet.</p>`; return; }
+  const now=new Date(); const weekStart=startOfWeek(now); const monthStart=new Date(now.getFullYear(),now.getMonth(),1);
+  const summarise=list=>list.reduce((a,w)=>{const st=workoutStats(w);a.workouts++;a.sets+=st.setCount;a.reps+=st.reps;a.volume+=st.volume;a.duration+=st.durationMs;return a;},{workouts:0,sets:0,reps:0,volume:0,duration:0});
+  const week=summarise(workouts.filter(w=>dateValue(w.date)>=weekStart.getTime())); const month=summarise(workouts.filter(w=>dateValue(w.date)>=monthStart.getTime()));
+  if($("historyPeriodStats")) $("historyPeriodStats").innerHTML=`<div><strong>This week</strong><span>${week.workouts} workouts · ${week.sets} sets · ${Math.round(week.volume).toLocaleString("en-GB")} ${settings.unit}${week.duration?` · ${formatDuration(week.duration)}`:""}</span></div><div><strong>This month</strong><span>${month.workouts} workouts · ${month.sets} sets · ${Math.round(month.volume).toLocaleString("en-GB")} ${settings.unit}${month.duration?` · ${formatDuration(month.duration)}`:""}</span></div>`;
   $("historyList").innerHTML = workouts.map(workout => {
     const stats = workoutStats(workout);
-    return `<div class="item history-card compact-history-card"><div class="history-summary-line"><strong>${formatDate(workout.date)}</strong><div class="history-inline-stats"><span>${stats.exerciseCount} exercises</span><span>${stats.setCount} sets</span><span>${stats.reps} reps</span><span>${Math.round(stats.volume).toLocaleString("en-GB")} ${escapeHtml(settings.unit)}</span></div></div><div class="item-actions four-actions"><button class="secondary small" data-view-workout="${escapeHtml(workout.id)}" type="button">View</button><button class="secondary small" data-edit-workout="${escapeHtml(workout.id)}" type="button">Edit</button><button class="secondary small" data-copy-workout="${escapeHtml(workout.id)}" type="button">Copy</button><button class="danger small" data-delete-workout="${escapeHtml(workout.id)}" type="button">Delete</button></div></div>`;
+    return `<div class="item history-card compact-history-card"><div class="history-summary-line"><strong>${formatDate(workout.date)}</strong><div class="history-inline-stats"><span>${stats.exerciseCount} exercises</span><span>${stats.setCount} sets</span><span>${stats.reps} reps</span><span>${Math.round(stats.volume).toLocaleString("en-GB")} ${escapeHtml(settings.unit)}</span>${stats.durationMs?`<span>${formatDuration(stats.durationMs)}</span>`:""}</div></div><div class="item-actions four-actions"><button class="secondary small" data-view-workout="${escapeHtml(workout.id)}" type="button">View</button><button class="secondary small" data-edit-workout="${escapeHtml(workout.id)}" type="button">Edit</button><button class="secondary small" data-copy-workout="${escapeHtml(workout.id)}" type="button">Copy</button><button class="danger small" data-delete-workout="${escapeHtml(workout.id)}" type="button">Delete</button></div></div>`;
   }).join("");
 }
 function workoutDetailHtml(workout) {
@@ -1204,10 +1241,10 @@ async function copyWorkoutToRoutine(id){const workout=workouts.find(w=>w.id===id
 
 
 function renderClasses(){
-  const list=$("classList");
-  if(!list)return;
-  if(!classes.length){list.innerHTML=`<div class="empty-state"><span>🧘</span><h3>No classes saved yet</h3><p class="muted">Add local classes you may want to attend and keep the provider booking link handy.</p></div>`;return;}
-  list.innerHTML=classes.map(item=>`<div class="item class-card"><div><div class="item-title">${escapeHtml(item.name||"Class")}</div><div class="item-meta">${escapeHtml(item.day||"")}${item.time?` · ${escapeHtml(item.time)}`:""}${item.provider?` · ${escapeHtml(item.provider)}`:""}</div><div class="item-meta">${escapeHtml(item.location||"")}${item.cost?` · ${escapeHtml(item.cost)}`:""}</div></div><div class="item-actions">${item.bookingUrl?`<a class="secondary small button-link" href="${escapeHtml(item.bookingUrl)}" target="_blank" rel="noopener">Book</a>`:""}<button class="secondary small" data-edit-class="${escapeHtml(item.id)}" type="button">Edit</button><button class="danger small" data-delete-class="${escapeHtml(item.id)}" type="button">Delete</button></div></div>`).join("");
+  const list=$("classList"); if(!list)return;
+  const filtered=classDayFilter==="all"?classes:classes.filter(item=>item.day===classDayFilter);
+  if(!filtered.length){list.innerHTML=`<div class="empty-state"><span>🧘</span><h3>No classes ${classDayFilter==="all"?"saved yet":`saved for ${escapeHtml(classDayFilter)}`}</h3><p class="muted">Add a local class or choose another day.</p></div>`;return;}
+  list.innerHTML=filtered.map(item=>`<div class="item class-card"><div><div class="item-title">${escapeHtml(item.name||"Class")}</div><div class="item-meta">${escapeHtml(item.day||"")}${item.time?` · ${escapeHtml(item.time)}`:""}${item.provider?` · ${escapeHtml(item.provider)}`:""}</div><div class="item-meta">${escapeHtml(item.location||"")}${item.cost?` · ${escapeHtml(item.cost)}`:""}</div></div><div class="item-actions">${item.bookingUrl?`<a class="secondary small button-link" href="${escapeHtml(item.bookingUrl)}" target="_blank" rel="noopener">Book</a>`:""}<button class="secondary small" data-edit-class="${escapeHtml(item.id)}" type="button">Edit</button><button class="danger small" data-delete-class="${escapeHtml(item.id)}" type="button">Delete</button></div></div>`).join("");
 }
 function openClassDialog(item=null){
   $("classEditId").value=item?.id||"";
@@ -1229,7 +1266,8 @@ async function saveClass(){
   const id=$("classEditId").value;
   if(id){await setDoc(userDoc("classes",id),payload,{merge:true});const i=classes.findIndex(x=>x.id===id);classes[i]={...classes[i],...payload};}
   else{payload.createdAt=serverTimestamp();const ref=await addDoc(userCollection("classes"),payload);classes.push({id:ref.id,...payload});}
-  classes.sort((a,b)=>String(a.day||"").localeCompare(String(b.day||"")) || String(a.time||"").localeCompare(String(b.time||"")));
+  sortClasses();
+  sortWorkoutsByDate();
   $("classDialog").close();renderClasses();showToast(id?"Class updated.":"Class added.");
 }
 async function deleteClass(id){if(!await askConfirm("Delete class","Remove this saved class?"))return;await deleteDoc(userDoc("classes",id));classes=classes.filter(x=>x.id!==id);renderClasses();}
@@ -1246,10 +1284,10 @@ function renderMealPlanner(){
 }
 function renderReadableMeals(){
   const wrap=$("mealReadableGrid");if(!wrap)return;const plan=mealPlanForWeek();const slots=normaliseMealSlots(settings.mealSlots);const names=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
-  const todayKey=today();const indexes=foodView==="today"?[Math.max(0,Math.min(6,Math.round((new Date(todayKey)-mealWeekStart)/86400000)))]:[0,1,2,3,4,5,6];
+  const selectedKey=isoDate(selectedFoodDate); if(selectedFoodDate<mealWeekStart||selectedFoodDate>addDays(mealWeekStart,6)) mealWeekStart=startOfWeek(selectedFoodDate); const indexes=foodView==="today"?[Math.max(0,Math.min(6,Math.round((selectedFoodDate-mealWeekStart)/86400000)))]:[0,1,2,3,4,5,6];
   wrap.innerHTML=indexes.map(i=>{const key=isoDate(addDays(mealWeekStart,i));const day=plan.days?.[key]||{};return `<div class="readable-day"><h3>${names[i]} <small>${formatDate(key)}</small></h3>${slots.map(slot=>{const k=slot.toLowerCase().replace(/[^a-z0-9]+/g,"_");return `<div class="readable-meal"><strong>${escapeHtml(slot)}</strong><span>${escapeHtml(day[k]||"—")}</span></div>`}).join("")}</div>`}).join("");
 }
-function setFoodView(view){foodView=view;document.querySelectorAll("[data-food-view]").forEach(b=>b.classList.toggle("active",b.dataset.foodView===view));$("mealPlannerView")?.classList.toggle("hidden",view!=="planner");$("mealReadableView")?.classList.toggle("hidden",view==="planner");renderReadableMeals();}
+function setFoodView(view){foodView=view;if(view==="today")selectedFoodDate=new Date();document.querySelectorAll("[data-food-view]").forEach(b=>b.classList.toggle("active",b.dataset.foodView===view));$("mealPlannerView")?.classList.toggle("hidden",view!=="planner");$("mealReadableView")?.classList.toggle("hidden",view==="planner");renderReadableMeals();}
 
 async function saveMealWeek(){
   const days={}; document.querySelectorAll("[data-meal-date]").forEach(el=>{const date=el.dataset.mealDate; days[date] ||= {}; days[date][el.dataset.mealSlot]=el.value.trim();});
@@ -1462,7 +1500,6 @@ $("roundExerciseList").onclick = (event) => {
   if (adjust) { syncManualGroupFromDOM(); const exercise=exerciseById(item.exerciseId); const field=adjust.dataset.groupAdjust; const step=field==="reps"?1:number(exercise?.weightStep,2.5); item[field]=Math.max(0,number(item[field])+number(adjust.dataset.delta)*step); return renderManualRound(); }
   const side = event.target.closest("[data-group-side]"); if (side) { item.side=side.dataset.groupSide; return renderManualRound(); }
   if (event.target.closest("[data-save-single-set]")) return saveOneSet(item.uid);
-  if (event.target.closest("[data-add-target-set]")) { syncManualGroupFromDOM(); item.targetSets += 1; return renderManualRound(); }
   if (event.target.closest("[data-remove-group-exercise]")) { syncManualGroupFromDOM(); manualGroupExercises=manualGroupExercises.filter(entry=>entry.uid!==item.uid); return renderManualRound(); }
   const edit = event.target.closest("[data-edit-inline-set]"); if (edit) { const idx=number(edit.dataset.editInlineSet); const set=item.completedSets[idx]; if(!set)return; item.reps=set.reps; item.weight=set.weight; item.side=set.side||"both"; item.completedSets.splice(idx,1); const pos=manualRounds.findIndex(round=>(round.entries||[]).some(entry=>entry.completedAt===set.completedAt)); if(pos>=0)manualRounds.splice(pos,1); return renderManualRound(); }
 };
@@ -1582,6 +1619,11 @@ $("routineSessionCard").onchange = (event) => {
   activeRoutineSession.currentSide = exercise.mode === "standard" ? "both" : "left";
 };
 
+$("routineSortSelect")?.addEventListener("change",event=>{routineSortMode=event.target.value;renderRoutines();});
+$("classDayFilter")?.addEventListener("change",event=>{classDayFilter=event.target.value;renderClasses();});
+$("roundExerciseList")?.addEventListener("input",event=>{if(!event.target.matches("[data-exercise-filter]"))return;const card=event.target.closest("[data-group-uid]");const select=card?.querySelector("[data-group-field=exerciseId]");if(!select)return;const q=event.target.value.trim().toLowerCase();[...select.options].forEach(o=>o.hidden=q&&!o.text.toLowerCase().includes(q));});
+$("roundExerciseList")?.addEventListener("click",event=>{const btn=event.target.closest("[data-view-exercise]");if(!btn)return;const card=btn.closest("[data-group-uid]");const id=card?.querySelector("[data-group-field=exerciseId]")?.value;const ex=exerciseById(id);if(!ex)return;$("exerciseInfoTitle").textContent=ex.name;$("exerciseInfoBody").innerHTML=`<p><strong>Category:</strong> ${escapeHtml(ex.category||"Other")}</p><p><strong>Equipment:</strong> ${escapeHtml(ex.equipment||"None")}</p><p><strong>Tracking:</strong> ${escapeHtml(ex.inputType||"repsWeight")}</p><p>${escapeHtml(ex.instructions||"Exercise instructions and video will be added here.")}</p>${ex.videoUrl?`<p><a class="primary button-link" target="_blank" rel="noopener" href="${escapeHtml(ex.videoUrl)}">Open video</a></p>`:""}`;$("exerciseInfoDialog").showModal();});
+$("exerciseInfoClose")?.addEventListener("click",()=>$("exerciseInfoDialog").close());
 $("workoutDate").value = today();
 $("historyList")?.addEventListener("click", async (event) => {
   const view=event.target.closest("[data-view-workout]"); if(view)return openWorkoutHistory(view.dataset.viewWorkout);
@@ -1601,8 +1643,8 @@ $("measurementChartSelect")?.addEventListener("change",renderBodyChart);
 $("showWeightFormBtn")?.addEventListener("click",()=>{ $("weightFormCard").classList.remove("hidden"); $("measureFormCard").classList.add("hidden"); document.body.classList.add("modal-open"); });
 $("showMeasureFormBtn")?.addEventListener("click",()=>{ $("measureFormCard").classList.remove("hidden"); $("weightFormCard").classList.add("hidden"); document.body.classList.add("modal-open"); });
 document.querySelectorAll("[data-close-body-form]").forEach(b=>b.addEventListener("click",()=>{b.closest(".card").classList.add("hidden");document.body.classList.remove("modal-open");}));
-$("prevMealWeekBtn")?.addEventListener("click",()=>{mealWeekStart=addDays(mealWeekStart,-7);renderMealPlanner();});
-$("nextMealWeekBtn")?.addEventListener("click",()=>{mealWeekStart=addDays(mealWeekStart,7);renderMealPlanner();});
+$("prevMealWeekBtn")?.addEventListener("click",()=>{if(foodView==="today")selectedFoodDate=addDays(selectedFoodDate,-1);else mealWeekStart=addDays(mealWeekStart,-7);renderMealPlanner();});
+$("nextMealWeekBtn")?.addEventListener("click",()=>{if(foodView==="today")selectedFoodDate=addDays(selectedFoodDate,1);else mealWeekStart=addDays(mealWeekStart,7);renderMealPlanner();});
 $("saveMealWeekBtn")?.addEventListener("click",saveMealWeek);
 
 if ($("bodyDate")) $("bodyDate").value = today();

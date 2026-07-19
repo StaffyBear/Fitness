@@ -45,7 +45,7 @@
     <section id="workout" class="panel">
       <div id="routineSessionCard" class="card hidden"></div>
       <div class="card compact-workout-card">
-        <div class="title-date-row"><h2>Log workout</h2><input id="workoutDate" class="date-inline" type="date" aria-label="Workout date" /></div>
+        <div class="title-date-row"><div><h2>Log workout</h2><div class="workout-session-clock">Workout time <strong id="workoutSessionTime">0:00</strong></div></div><input id="workoutDate" class="date-inline" type="date" aria-label="Workout date" /></div>
         <div class="row between gap top-gap"><div><h3 id="roundHeading">Round 1</h3><p class="muted compact">Two exercises by default. Add more for a larger superset or circuit.</p></div><button id="addRoundExerciseBtn" class="secondary small" type="button">+ Exercise</button></div>
         <div id="roundExerciseList" class="round-exercise-list"></div>
         <div class="row gap wrap top-gap"><button id="addRoundBtn" class="secondary grow" type="button">+ Next round</button></div>
@@ -58,11 +58,11 @@
     </section>
 
     <section id="routines" class="panel">
-      <div class="card"><div class="row between gap"><div><h2>Routines</h2><p class="muted compact">Build single exercises, supersets or larger groups.</p></div><button id="newRoutineBtn" class="primary small" type="button">+ New routine</button></div><div id="routineList" class="tile-list"></div></div>
-      <div id="routineEditor" class="card hidden"><div class="row between gap"><div><h2 id="routineEditorTitle">New routine</h2><p class="muted compact">Choose exercises in the order you want them to appear. Each round loads automatically during your workout.</p></div><button id="closeRoutineEditorBtn" class="ghost small" type="button">Close</button></div><div class="grid two routine-basic-fields"><label>Routine name<input id="routineName" placeholder="Monday — Legs" /></label><label>Day / label<input id="routineDay" placeholder="Monday" /></label></div><div class="row between gap"><h3>Rounds</h3><button id="addRoutineBlockBtn" class="secondary small" type="button">+ Add round</button></div><div id="routineBlocks" class="stack"></div><button id="saveRoutineBtn" class="primary" type="button">Save routine</button></div>
+      <div class="card"><div class="row between gap"><div><h2>Routines</h2><p class="muted compact">Build single exercises, supersets or larger groups.</p></div><div class="row gap wrap"><label class="inline-filter">Sort <select id="routineSortSelect"><option value="day">Day of week</option><option value="name">Name</option><option value="updated">Recently updated</option><option value="last">Last performed</option></select></label><button id="newRoutineBtn" class="primary small" type="button">+ New routine</button></div></div><div id="routineList" class="tile-list"></div></div>
+      <div id="routineEditor" class="card hidden"><div class="row between gap"><div><h2 id="routineEditorTitle">New routine</h2><p class="muted compact">Choose exercises in the order you want them to appear. Each round loads automatically during your workout.</p></div><button id="closeRoutineEditorBtn" class="ghost small" type="button">Close</button></div><div class="grid two routine-basic-fields"><label>Routine name<input id="routineName" placeholder="Monday — Legs" /></label><label>Day<select id="routineDay"><option value="">No day</option><option>Monday</option><option>Tuesday</option><option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option><option>Sunday</option></select></label></div><div class="row between gap"><h3>Rounds</h3><button id="addRoutineBlockBtn" class="secondary small" type="button">+ Add round</button></div><div id="routineBlocks" class="stack"></div><button id="saveRoutineBtn" class="primary" type="button">Save routine</button></div>
     </section>
 
-    <section id="history" class="panel"><div class="card"><h2>Workout history</h2><p class="muted">View, edit, copy or delete saved workouts.</p><div id="historyList" class="tile-list"></div></div></section>
+    <section id="history" class="panel"><div class="card"><h2>Workout history</h2><p class="muted">View, edit, copy or delete saved workouts.</p><div id="historyPeriodStats" class="history-period-stats"></div><div id="historyList" class="tile-list"></div></div></section>
     <section id="pbs" class="panel"><div class="card"><h2>Personal bests</h2><p class="muted">Calculated from completed sets. Left and right are tracked separately.</p><div id="pbList" class="tile-list"></div></div></section>
 
     <section id="body" class="panel">
@@ -83,7 +83,7 @@
       <div id="mealReadableView" class="card hidden"><div id="mealReadableGrid"></div></div>
     </section>
 
-    <section id="classes" class="panel"><div class="card"><div class="row between gap"><div><h2>Local classes</h2><p class="muted compact">Save classes in your local area and open the provider’s booking page.</p></div><button id="addClassBtn" class="primary small" type="button">+ Add class</button></div><div id="classList" class="tile-list top-gap"></div></div></section>
+    <section id="classes" class="panel"><div class="card"><div class="row between gap"><div><h2>Local classes</h2><p class="muted compact">Save classes in your local area and open the provider’s booking page.</p></div><div class="row gap wrap"><label class="inline-filter">Day <select id="classDayFilter"><option value="all">All days</option><option>Monday</option><option>Tuesday</option><option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option><option>Sunday</option></select></label><button id="addClassBtn" class="primary small" type="button">+ Add class</button></div></div><div id="classList" class="tile-list top-gap"></div></div></section>
 
     <section id="timer" class="panel"><div class="card"><h2>Timer</h2><div class="mode-switch"><button class="active" data-timer-mode="stopwatch" type="button">Stopwatch</button><button data-timer-mode="countdown" type="button">Rest timer</button></div><div id="timerDisplay" class="timer-display">00:00.0</div><p id="timerStatus" class="timer-status">Ready</p><div class="timer-controls"><button id="timerStartBtn" class="primary" type="button">Start</button><button id="timerResetBtn" class="secondary" type="button">Reset</button></div><div id="timerPresetWrap" class="timer-presets hidden"><button class="secondary" data-seconds="30" type="button">30 sec</button><button class="secondary" data-seconds="60" type="button">60 sec</button><button class="secondary" data-seconds="90" type="button">90 sec</button><button class="secondary" data-seconds="120" type="button">2 min</button></div></div></section>
 
@@ -110,7 +110,7 @@
       <div id="settingsPanelUnits" class="card settings-detail hidden"><div class="row between"><h3>Units & body</h3><button class="ghost small" data-close-settings type="button">Close</button></div><label>Default weight unit<select id="unitSetting"><option value="kg">kg</option><option value="lb">lb</option></select></label><label>Default weight label<select id="weightModeSetting"><option value="total">Total weight</option><option value="each">Each dumbbell / side</option><option value="bodyweight">Bodyweight</option></select></label><label>Measurement unit<select id="measureUnitSetting"><option value="cm">cm</option><option value="in">inches</option></select></label><label>Height (cm)<input id="heightSetting" inputmode="decimal" placeholder="e.g. 169" /></label><button class="primary" data-save-settings type="button">Save settings</button></div>
       <div id="settingsPanelExercises" class="card settings-detail hidden"><div class="row between"><h3>Exercise library</h3><button class="ghost small" data-close-settings type="button">Close</button></div><p>Your saved workouts, PB history and body data will not be deleted.</p><p class="muted compact">Resetting removes every current exercise and installs a clean starter library. Any routine that uses a custom exercise may need editing afterwards.</p><button id="resetExerciseLibraryBtn" class="danger" type="button">Reset exercise library</button></div>
       <div id="settingsPanelBackup" class="card settings-detail hidden"><div class="row between"><h3>Backup</h3><button class="ghost small" data-close-settings type="button">Close</button></div><button id="exportBtn" class="secondary" type="button">Export JSON backup</button></div>
-      <div id="settingsPanelAbout" class="card settings-detail hidden"><div class="row between"><h3>About Frever Fitness</h3><button class="ghost small" data-close-settings type="button">Close</button></div><p>Frever Fitness is a private workout, progress and planning app.</p><p class="muted">Version 8.1</p></div>
+      <div id="settingsPanelAbout" class="card settings-detail hidden"><div class="row between"><h3>About Frever Fitness</h3><button class="ghost small" data-close-settings type="button">Close</button></div><p>Frever Fitness is a private workout, progress and planning app.</p><p class="muted">Version 8.4</p></div>
     </section>
     <nav id="bottomNav" class="bottom-nav" aria-label="Favourite navigation"></nav>
 
@@ -138,5 +138,6 @@
 </dialog>
 
 <script type="module" src="./app.js?v=8.2"></script>
+<dialog id="exerciseInfoDialog" class="detail-dialog"><div class="row between"><h3 id="exerciseInfoTitle">Exercise</h3><button id="exerciseInfoClose" class="ghost small" type="button">Close</button></div><div id="exerciseInfoBody"></div></dialog>
 </body>
 </html>
