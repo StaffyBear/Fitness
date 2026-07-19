@@ -70,3 +70,32 @@ body{background:linear-gradient(180deg,#edf3f9 0,#f6f8fb 42%,#eef3f8 100%);paddi
 
 /* v7 stable multipage foundation */
 .empty-state{text-align:center;padding:36px 18px;border:1px dashed var(--line);border-radius:18px;background:#f8fbfe;margin-top:18px}.empty-state span{display:block;font-size:44px}.empty-state h3{margin:10px 0 4px}.app-header{position:relative}.brand-logo{object-fit:cover}
+
+/* v7.1 home, settings and food polish */
+.header-actions:has(#userEmail.hidden){display:none}
+.compact-tiles{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.compact-tiles .nav-tile{min-height:92px;padding:14px 12px;display:flex;flex-direction:row;align-items:center;justify-content:center;text-align:center;gap:9px}
+.compact-tiles .nav-tile span{font-size:27px;line-height:1;flex:0 0 auto}
+.compact-tiles .nav-tile strong{font-size:16px;line-height:1.15}
+#pbList{gap:14px}
+.history-card{overflow:hidden}
+.history-summary-line{display:grid;grid-template-columns:minmax(120px,1.2fr) repeat(4,max-content);align-items:center;gap:10px;white-space:normal;overflow:visible}
+.history-summary-line strong{margin-right:0}
+.history-summary-line span+span:before{content:"•";margin-right:10px;color:#9badbf}
+.four-actions{grid-template-columns:repeat(4,minmax(0,1fr))}
+.settings-dashboard-head{padding:10px 4px 0}.settings-dashboard-head h2{margin:0}
+.settings-tile-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:14px 0}
+.settings-tile{min-height:112px;border:1px solid var(--line);border-radius:20px;background:#fff;box-shadow:0 10px 28px #163b6010;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-weight:900;color:var(--ink);padding:14px;text-align:center}
+.settings-tile span{font-size:30px}.settings-tile strong{font-size:15px}
+.settings-detail{scroll-margin-top:12px}.account-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+.reorder-list{display:grid;gap:8px;margin:14px 0}.reorder-row{border:1px solid var(--line);border-radius:14px;background:#f8fbfe;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;gap:10px}.reorder-row label{display:flex;align-items:center;gap:9px;margin:0}.reorder-row input[type=checkbox]{width:20px;height:20px;margin:0}.reorder-row>div{display:flex;gap:5px}.reorder-row button{border:0;background:var(--soft);color:#155c9d;border-radius:9px;min-width:34px;height:34px;font-weight:900}.reorder-row button:disabled{opacity:.35}
+.food-view-switch{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;background:var(--soft);padding:5px;border-radius:14px;margin-top:16px}.food-view-switch button{border:0;background:transparent;border-radius:10px;padding:10px;font-weight:900;color:var(--muted)}.food-view-switch button.active{background:#fff;color:var(--accent);box-shadow:0 4px 12px #163b6014}
+.readable-day{border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:12px;background:#fff}.readable-day h3{display:flex;justify-content:space-between;gap:10px;margin:0 0 10px}.readable-day h3 small{font-weight:600;color:var(--muted)}.readable-meal{display:grid;grid-template-columns:minmax(100px,140px) 1fr;gap:12px;padding:10px 0;border-top:1px solid var(--line)}.readable-meal span{color:var(--muted);white-space:pre-wrap}
+@media(max-width:700px){
+  .app-header{flex-direction:row;align-items:center}.brand-wrap{min-width:0}.brand-wrap h1{font-size:24px}.brand-wrap p{font-size:13px}
+  .compact-tiles{grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}.compact-tiles .nav-tile{min-height:84px;padding:10px 7px;gap:6px}.compact-tiles .nav-tile span{font-size:23px}.compact-tiles .nav-tile strong{font-size:14px}
+  .settings-tile-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.settings-tile{min-height:100px}
+  .history-summary-line{grid-template-columns:1fr;gap:5px}.history-summary-line strong{font-size:18px}.history-summary-line span{display:inline}.history-summary-line span+span:before{content:"";margin:0}.history-summary-line span:not(:last-child):after{content:" ·"}
+  .four-actions{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}.four-actions button{font-size:13px;padding:9px 2px}
+}
+@media(max-width:380px){.compact-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}.readable-meal{grid-template-columns:1fr;gap:3px}}

@@ -4,7 +4,12 @@ import {
   onAuthStateChanged,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  signOut
+  signOut,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  updateEmail,
+  updatePassword,
+  updateProfile
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
 import {
   getFirestore,
@@ -47,7 +52,7 @@ let routines = [];
 let bodyEntries = [];
 let mealPlans = [];
 let mealWeekStart = startOfWeek(new Date());
-let settings = { unit: "kg", weightMode: "total", measureUnit: "cm", defaultRest: 60, autoRest: false, defaultReps: 10, defaultSets: 3, heightCm: 0, bottomNav: ["workout", "history", "pbs", "routines"] };
+let settings = { unit: "kg", weightMode: "total", measureUnit: "cm", defaultRest: 60, autoRest: false, defaultReps: 10, defaultSets: 3, heightCm: 0, bottomNav: ["workout", "history", "pbs", "body"], homeTiles: ["workout","routines","history","pbs","body","food","classes","timer","library","settings"], mealSlots: ["Breakfast","AM Snack","Lunch","PM Snack","Dinner"] };
 const bottomNavPages = [
   { id: "workout", label: "Workout", icon: "🏋️" },
   { id: "history", label: "History", icon: "🕘" },
@@ -59,6 +64,16 @@ const bottomNavPages = [
   { id: "library", label: "Exercises", icon: "💪" },
   { id: "settings", label: "Settings", icon: "⚙️" }
 ];
+
+const homeTileCatalog = [
+  { id:"workout", label:"Workout", icon:"🏋️" }, { id:"routines", label:"Routines", icon:"📋" },
+  { id:"history", label:"History", icon:"🕘" }, { id:"pbs", label:"PBs", icon:"🏆" },
+  { id:"body", label:"Body", icon:"📏" }, { id:"food", label:"Food", icon:"🍽️" },
+  { id:"classes", label:"Classes", icon:"🧘" }, { id:"timer", label:"Timer", icon:"⏱️" },
+  { id:"library", label:"Exercises", icon:"💪" }, { id:"settings", label:"Settings", icon:"⚙️" }
+];
+let foodView = "planner";
+
 let manualSets = [];
 let manualRounds = [];
 let manualRoundNumber = 1;
@@ -953,6 +968,34 @@ function selectedBottomNavFromUI() {
   return [...document.querySelectorAll("#bottomNavChoices input:checked")].map(input => input.value).slice(0, 4);
 }
 
+function normaliseHomeTiles(value){
+  const valid=new Set(homeTileCatalog.map(x=>x.id));
+  const list=Array.isArray(value)?value.filter(x=>valid.has(x)):[];
+  return [...new Set(list)].length?[...new Set(list)]:homeTileCatalog.map(x=>x.id);
+}
+function normaliseMealSlots(value){
+  const list=Array.isArray(value)?value.map(v=>String(v).trim()).filter(Boolean):[];
+  return [...new Set(list)].length?[...new Set(list)]:["Breakfast","AM Snack","Lunch","PM Snack","Dinner"];
+}
+function renderHomeTiles(){
+  const grid=$("homeTileGrid"); if(!grid)return;
+  settings.homeTiles=normaliseHomeTiles(settings.homeTiles);
+  grid.innerHTML=settings.homeTiles.map((id,index)=>{const tile=homeTileCatalog.find(x=>x.id===id);if(!tile)return"";return `<button class="nav-tile ${index===0?"tile-feature":""}" data-tab="${tile.id}" type="button"><span>${tile.icon}</span><strong>${tile.label}</strong></button>`}).join("");
+  grid.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>openPage(b.dataset.tab));
+}
+function renderHomeTileChoices(){
+  const wrap=$("homeTileChoices");if(!wrap)return; const selected=normaliseHomeTiles(settings.homeTiles);
+  const ordered=[...selected,...homeTileCatalog.map(x=>x.id).filter(id=>!selected.includes(id))];
+  wrap.innerHTML=ordered.map(id=>{const tile=homeTileCatalog.find(x=>x.id===id);const pos=selected.indexOf(id);return `<div class="reorder-row" data-home-tile="${tile.id}"><label><input type="checkbox" ${pos>=0?"checked":""}/><span>${tile.icon} ${tile.label}</span></label><div><button data-home-move="up" type="button" ${pos<=0?"disabled":""}>↑</button><button data-home-move="down" type="button" ${pos<0||pos===selected.length-1?"disabled":""}>↓</button></div></div>`}).join("");
+}
+function selectedHomeTilesFromUI(){return [...document.querySelectorAll("#homeTileChoices [data-home-tile]")].filter(r=>r.querySelector("input")?.checked).map(r=>r.dataset.homeTile);}
+function selectedMealSlotsFromUI(){return [...document.querySelectorAll("#mealSlotChoices [data-meal-index]")].filter(r=>r.querySelector("input")?.checked).map(r=>r.querySelector("span")?.textContent?.trim()).filter(Boolean);}
+function renderMealSlotChoices(){
+  const wrap=$("mealSlotChoices");if(!wrap)return;settings.mealSlots=normaliseMealSlots(settings.mealSlots);
+  wrap.innerHTML=settings.mealSlots.map((name,index)=>`<div class="reorder-row" data-meal-index="${index}"><label><input type="checkbox" checked/><span>${escapeHtml(name)}</span></label><div><button data-meal-move="up" type="button" ${index===0?"disabled":""}>↑</button><button data-meal-move="down" type="button" ${index===settings.mealSlots.length-1?"disabled":""}>↓</button><button data-meal-remove type="button">×</button></div></div>`).join("");
+}
+function renderSettingsAccount(){if($("settingsEmail"))$("settingsEmail").textContent=currentUser?.email||"—";if($("displayNameSetting"))$("displayNameSetting").value=currentUser?.displayName||"";}
+
 function applySettingsToUI() {
   $("unitSetting").value = settings.unit;
   $("weightModeSetting").value = settings.weightMode;
@@ -965,8 +1008,15 @@ function applySettingsToUI() {
   $("weightUnitLabel").textContent = settings.unit;
   $("weightUnitText").textContent = settings.unit;
   settings.bottomNav = normaliseBottomNav(settings.bottomNav);
+  settings.homeTiles = normaliseHomeTiles(settings.homeTiles);
+  settings.mealSlots = normaliseMealSlots(settings.mealSlots);
   renderBottomNavChoices();
   renderBottomNav();
+  renderHomeTiles();
+  renderHomeTileChoices();
+  renderMealSlotChoices();
+  renderSettingsAccount();
+  renderMealPlanner();
 }
 
 async function saveSettings() {
@@ -979,7 +1029,9 @@ async function saveSettings() {
     defaultReps: Math.max(1, number($("defaultRepsSetting").value, 10)),
     defaultSets: Math.max(1, number($("defaultSetsSetting").value, 3)),
     heightCm: Math.max(0, number($("heightSetting").value, 0)),
-    bottomNav: selectedBottomNavFromUI()
+    bottomNav: selectedBottomNavFromUI(),
+    homeTiles: selectedHomeTilesFromUI().length ? selectedHomeTilesFromUI() : normaliseHomeTiles(settings.homeTiles),
+    mealSlots: normaliseMealSlots(selectedMealSlotsFromUI().length ? selectedMealSlotsFromUI() : settings.mealSlots)
   };
   await setDoc(doc(db, "users", currentUser.uid, "profile", "settings"), settings, { merge: true });
   applySettingsToUI();
@@ -1028,10 +1080,19 @@ function mealPlanForWeek(){ return mealPlans.find(p=>p.id===isoDate(mealWeekStar
 function renderMealPlanner(){
   if(!$("mealPlannerGrid"))return;
   const plan=mealPlanForWeek();
+  const slots=normaliseMealSlots(settings.mealSlots);
   $("mealWeekLabel").textContent=`${formatDate(isoDate(mealWeekStart))} – ${formatDate(isoDate(addDays(mealWeekStart,6)))}`;
   const names=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
-  $("mealPlannerGrid").innerHTML=names.map((name,i)=>{const key=isoDate(addDays(mealWeekStart,i)); const day=plan.days?.[key]||{}; return `<div class="meal-day"><h3>${name}</h3><small>${formatDate(key)}</small>${["Breakfast","Lunch","Dinner","Snacks"].map(slot=>`<label>${slot}<textarea data-meal-date="${key}" data-meal-slot="${slot.toLowerCase()}" placeholder="Plan ${slot.toLowerCase()}">${escapeHtml(day[slot.toLowerCase()]||"")}</textarea></label>`).join("")}</div>`}).join("");
+  $("mealPlannerGrid").innerHTML=names.map((name,i)=>{const key=isoDate(addDays(mealWeekStart,i));const day=plan.days?.[key]||{};return `<div class="meal-day"><h3>${name}</h3><small>${formatDate(key)}</small>${slots.map(slot=>{const keyName=slot.toLowerCase().replace(/[^a-z0-9]+/g,"_");return `<label>${escapeHtml(slot)}<textarea data-meal-date="${key}" data-meal-slot="${keyName}" placeholder="Plan ${escapeHtml(slot.toLowerCase())}">${escapeHtml(day[keyName]||"")}</textarea></label>`}).join("")}</div>`}).join("");
+  renderReadableMeals();
 }
+function renderReadableMeals(){
+  const wrap=$("mealReadableGrid");if(!wrap)return;const plan=mealPlanForWeek();const slots=normaliseMealSlots(settings.mealSlots);const names=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+  const todayKey=today();const indexes=foodView==="today"?[Math.max(0,Math.min(6,Math.round((new Date(todayKey)-mealWeekStart)/86400000)))]:[0,1,2,3,4,5,6];
+  wrap.innerHTML=indexes.map(i=>{const key=isoDate(addDays(mealWeekStart,i));const day=plan.days?.[key]||{};return `<div class="readable-day"><h3>${names[i]} <small>${formatDate(key)}</small></h3>${slots.map(slot=>{const k=slot.toLowerCase().replace(/[^a-z0-9]+/g,"_");return `<div class="readable-meal"><strong>${escapeHtml(slot)}</strong><span>${escapeHtml(day[k]||"—")}</span></div>`}).join("")}</div>`}).join("");
+}
+function setFoodView(view){foodView=view;document.querySelectorAll("[data-food-view]").forEach(b=>b.classList.toggle("active",b.dataset.foodView===view));$("mealPlannerView")?.classList.toggle("hidden",view!=="planner");$("mealReadableView")?.classList.toggle("hidden",view==="planner");renderReadableMeals();}
+
 async function saveMealWeek(){
   const days={}; document.querySelectorAll("[data-meal-date]").forEach(el=>{const date=el.dataset.mealDate; days[date] ||= {}; days[date][el.dataset.mealSlot]=el.value.trim();});
   const id=isoDate(mealWeekStart); const payload={weekStart:id,days,updatedAt:serverTimestamp()}; await setDoc(userDoc("mealPlans",id),payload,{merge:true});
@@ -1181,7 +1242,7 @@ $("confirmCancelBtn").onclick = () => { $("confirmDialog").close(); confirmResol
 $("confirmOkBtn").onclick = () => { $("confirmDialog").close(); confirmResolver?.(true); confirmResolver = null; };
 
 document.querySelectorAll("[data-tab]").forEach((tab) => tab.onclick = () => openPage(tab.dataset.tab));
-$("moreTileBtn").onclick = () => $("moreTiles").classList.toggle("hidden");
+
 $("quickAddExerciseBtn").onclick = () => { switchTab("library"); clearExerciseForm(); };
 $("demoBtn").onclick = () => { const exercise = selectedExercise(); if (exercise?.demo) window.open(exercise.demo, "_blank", "noopener"); };
 $("addRoundExerciseBtn").onclick = addManualExercise;
@@ -1213,6 +1274,22 @@ $("bottomNavChoices")?.addEventListener("change", (event) => {
     showToast("Choose up to four favourites. Home is always included.");
   }
 });
+
+document.querySelectorAll("[data-settings-panel]").forEach(button=>button.addEventListener("click",()=>{document.querySelectorAll(".settings-detail").forEach(x=>x.classList.add("hidden"));$("settingsPanel"+button.dataset.settingsPanel[0].toUpperCase()+button.dataset.settingsPanel.slice(1))?.classList.remove("hidden");}));
+document.querySelectorAll("[data-close-settings]").forEach(button=>button.addEventListener("click",()=>button.closest(".settings-detail")?.classList.add("hidden")));
+document.querySelectorAll("[data-save-settings]").forEach(button=>button.addEventListener("click",saveSettings));
+$("saveNavigationBtn")?.addEventListener("click",saveSettings);
+$("saveHomeLayoutBtn")?.addEventListener("click",saveSettings);
+$("saveMealsSettingBtn")?.addEventListener("click",saveSettings);
+$("settingsLogoutBtn")?.addEventListener("click",()=>signOut(auth));
+$("saveProfileBtn")?.addEventListener("click",async()=>{await updateProfile(currentUser,{displayName:$("displayNameSetting").value.trim()});renderSettingsAccount();showToast("Profile saved.");});
+async function accountCredential(){const password=$("accountCurrentPassword")?.value;if(!password)throw new Error("Enter your current password first.");const credential=EmailAuthProvider.credential(currentUser.email,password);await reauthenticateWithCredential(currentUser,credential);}
+$("changeEmailBtn")?.addEventListener("click",async()=>{try{await accountCredential();const next=$("accountNewEmail").value.trim();if(!next)throw new Error("Enter a new email address.");await updateEmail(currentUser,next);renderSettingsAccount();showToast("Email address updated.");}catch(e){showToast(e.message||"Email could not be changed.");}});
+$("changePasswordBtn")?.addEventListener("click",async()=>{try{await accountCredential();const next=$("accountNewPassword").value;if(next.length<6)throw new Error("New password must be at least 6 characters.");await updatePassword(currentUser,next);showToast("Password updated.");}catch(e){showToast(e.message||"Password could not be changed.");}});
+$("homeTileChoices")?.addEventListener("click",event=>{const btn=event.target.closest("[data-home-move]");if(!btn)return;const selected=selectedHomeTilesFromUI();const row=btn.closest("[data-home-tile]");const id=row.dataset.homeTile;let i=selected.indexOf(id);if(i<0)return;const j=btn.dataset.homeMove==="up"?i-1:i+1;if(j<0||j>=selected.length)return;[selected[i],selected[j]]=[selected[j],selected[i]];settings.homeTiles=selected;renderHomeTileChoices();});
+$("mealSlotChoices")?.addEventListener("click",event=>{const row=event.target.closest("[data-meal-index]");if(!row)return;const i=number(row.dataset.mealIndex);if(event.target.closest("[data-meal-remove]")){settings.mealSlots.splice(i,1);}else{const btn=event.target.closest("[data-meal-move]");if(!btn)return;const j=btn.dataset.mealMove==="up"?i-1:i+1;if(j<0||j>=settings.mealSlots.length)return;[settings.mealSlots[i],settings.mealSlots[j]]=[settings.mealSlots[j],settings.mealSlots[i]];}renderMealSlotChoices();});
+$("addMealSlotBtn")?.addEventListener("click",()=>{const value=$("newMealSlotName").value.trim();if(!value)return;settings.mealSlots=normaliseMealSlots([...settings.mealSlots,value]);$("newMealSlotName").value="";renderMealSlotChoices();});
+document.querySelectorAll("[data-food-view]").forEach(button=>button.addEventListener("click",()=>setFoodView(button.dataset.foodView)));
 
 // Delegated events
 $("roundExerciseList").onclick = (event) => {
@@ -1375,8 +1452,10 @@ onAuthStateChanged(auth, async (user) => {
   $("authMessage").textContent = "";
   $("authPanel").classList.toggle("hidden", Boolean(user));
   $("appPanel").classList.toggle("hidden", !user);
-  $("logoutBtn").classList.toggle("hidden", !user);
+  $("logoutBtn").classList.add("hidden");
+  $("userEmail").classList.add("hidden");
   $("userEmail").textContent = user ? user.email : "Not signed in";
+  renderSettingsAccount();
   if (!user) return;
   try {
     await loadAll();
